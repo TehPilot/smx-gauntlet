@@ -1,0 +1,9 @@
+# directories
+data/
+events/
+save/
+test/
+node_modules/
+
+# package lock (fake af)
+package-lock.json
