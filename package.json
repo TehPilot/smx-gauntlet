@@ -3,6 +3,6 @@
     "axios": "^1.7.2",
     "fs": "^0.0.1-security",
     "node-cron": "^3.0.3",
-    "request": "^2.88.2"
+    "discord.js": "~13.7.0"
   }
 }
