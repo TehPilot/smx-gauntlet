@@ -131,6 +131,21 @@ async function importEventData() {
     }
 }
 
+// calculates dance point / leaderboard point value of a score
+function calculateLeaderboardScore(score, diff) {
+    return (score * diff * diff) / 1000;
+}
+
+// all cron schedules in one place for modifying.
+// remove the last asterisk in each one to switch from per-second to per-hour processing
+const schedules = {
+    eventInitialize:    "0,20,40 */1 * * * *",
+    periodStart:        "3,23,43 */1 * * * *",
+    periodEnd:          "6,26,46 */1 * * * *",
+    eventAdvance:       "9,29,49 */1 * * * *",
+    importEvent:        "55 4 * * * *"
+}
+
 // task schedulers to be fired on discord login
 client.login(secrets.discordToken).then(async () => {
 
@@ -139,7 +154,7 @@ client.login(secrets.discordToken).then(async () => {
     console.log("Ready");
 
     // initialize an event if not ongoing
-    cron.schedule("0 */1 * * * *", async () => {
+    cron.schedule(schedule.eventInitialize, async () => {
         console.log("Running routine: event initialization");
 
         let eUpdated = false;
@@ -160,13 +175,13 @@ client.login(secrets.discordToken).then(async () => {
         }
 
         if (eUpdated) {
-            writeEventData();
+            await writeEventData();
         }
 
     });
 
     // start a period
-    cron.schedule("15 */1 * * * *", async () => {
+    cron.schedule(schedule.periodStart, async () => {
         console.log("Running routine: event period beginning");
 
         let eUpdated = false;
@@ -241,12 +256,12 @@ client.login(secrets.discordToken).then(async () => {
         }
 
         if (eUpdated) {
-            writeEventData();
+            await writeEventData();
         }
     });
 
     // end a period and tabulate results
-    cron.schedule("30 */1 * * * *", async() => {
+    cron.schedule(schedule.periodEnd, async() => {
         console.log("Running routine: event period completion");
 
         let eUpdated = false;
@@ -365,7 +380,7 @@ client.login(secrets.discordToken).then(async () => {
     });
 
     // begin a new event period
-    cron.schedule("45 */1 * * * *", async() => {
+    cron.schedule(schedule.eventAdvance, async() => {
         console.log("Running routine: event period ending");
 
         let eUpdated = false;
@@ -399,5 +414,10 @@ client.login(secrets.discordToken).then(async () => {
         }
 
     });
+
+    // daily: run the import mechanism
+    cron.schedule(schedule.importEvent, async() => {
+        await importEventData();
+    })
 
 });
