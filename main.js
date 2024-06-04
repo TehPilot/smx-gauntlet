@@ -146,6 +146,16 @@ const schedules = {
     importEvent:        "55 4 * * * *"
 }
 
+// control flags that make sure if a scheduled job is already running,
+// we don't start another one (legitimate concurrency issues happened in test)
+var jobRunning = {
+    eventInitialize:    false,
+    periodStart:        false,
+    periodEnd:          false,
+    eventAdvance:       false,
+    importEvent:        false
+}
+
 // task schedulers to be fired on discord login
 client.login(secrets.discordToken).then(async () => {
 
@@ -154,7 +164,13 @@ client.login(secrets.discordToken).then(async () => {
     console.log("Ready");
 
     // initialize an event if not ongoing
-    cron.schedule(schedule.eventInitialize, async () => {
+    cron.schedule(schedules.eventInitialize, async () => {
+
+        if (jobRunning.eventInitialize) {
+            return;
+        }
+        jobRunning.eventInitialize = true;
+
         console.log("Running routine: event initialization");
 
         let eUpdated = false;
@@ -178,10 +194,18 @@ client.login(secrets.discordToken).then(async () => {
             await writeEventData();
         }
 
+        jobRunning.eventInitialize = false;
+
     });
 
     // start a period
-    cron.schedule(schedule.periodStart, async () => {
+    cron.schedule(schedules.periodStart, async () => {
+
+        if (jobRunning.periodStart) {
+            return;
+        }
+        jobRunning.periodStart = true;
+
         console.log("Running routine: event period beginning");
 
         let eUpdated = false;
@@ -258,10 +282,17 @@ client.login(secrets.discordToken).then(async () => {
         if (eUpdated) {
             await writeEventData();
         }
+
+        jobRunning.periodStart = false;
     });
 
     // end a period and tabulate results
-    cron.schedule(schedule.periodEnd, async() => {
+    cron.schedule(schedules.periodEnd, async() => {
+        if (jobRunning.periodEnd) {
+            return;
+        }
+        jobRunning.periodEnd = true;
+        
         console.log("Running routine: event period completion");
 
         let eUpdated = false;
@@ -377,13 +408,20 @@ client.login(secrets.discordToken).then(async () => {
             writeEventData();
         }
 
+        jobRunning.periodEnd = false;
     });
 
     // begin a new event period
-    cron.schedule(schedule.eventAdvance, async() => {
+    cron.schedule(schedules.eventAdvance, async() => {
+        if (jobRunning.eventAdvance) {
+            return;
+        }
+        jobRunning.eventAdvance = true;
+
         console.log("Running routine: event period ending");
 
         let eUpdated = false;
+        let eOver = [];
 
         for (let e of events) {
             if (e.started && !e.completed) {
@@ -406,6 +444,18 @@ client.login(secrets.discordToken).then(async () => {
 
                     eUpdated = true;
                 }
+            } else if (e.started && e.completed) {
+                eOver.push(events.indexOf(e));
+            }
+        }
+
+        // remove events from the save data if they've been completed.
+        // TODO: maybe save the data to a file for future analysis if needed?
+        // imperative to walk the array backwards to not screw up indices
+        for (let i = events.length - 1; i >= 0; i--) {
+            if (events[i].completed) {
+                events.splice(i, 1);
+                eUpdated = true;
             }
         }
 
@@ -413,11 +463,19 @@ client.login(secrets.discordToken).then(async () => {
             writeEventData();
         }
 
+        jobRunning.eventAdvance = false;
     });
 
     // daily: run the import mechanism
-    cron.schedule(schedule.importEvent, async() => {
+    cron.schedule(schedules.importEvent, async() => {
+        if (jobRunning.importEvent) {
+            return;
+        }
+        jobRunning.importEvent = true;
+
         await importEventData();
+
+        jobRunning.importEvent = false;
     })
 
 });
