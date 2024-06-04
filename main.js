@@ -236,10 +236,12 @@ client.login(secrets.discordToken).then(async () => {
 
                         // filter all valid charts down to ones in the specified difficulty and level range.
                         // also exclude anything we've already drawn (no duplicates)
+                        // also somehow I got removed song charts, so I have to filter those too ...
                         let cardDraw = charts.data.filter((c) =>
                             c.difficulty_name.startsWith(draw.difficulty.toLowerCase())
                             && c.difficulty >= draw.lower
                             && c.difficulty <= draw.upper
+                            && c.is_enabled
                             && !e.excludeCharts.includes(c._id)
                         );
 
@@ -260,10 +262,13 @@ client.login(secrets.discordToken).then(async () => {
                             e.excludeCharts.push(card._id);
 
                             // looks up the song data so we can show the users the title and artist
+                            // ... for some reason the API calls Beginner "Basic" so we do a transformation here
                             let songRef = songs.data.find((s) => s._id === card.song_id);
-                            dMessageText += `**${songRef.title}** by ${songRef.artist} (${draw.difficulty} ${card.difficulty})\n`
+                            dMessageText += `\> **${songRef.title}** by ${songRef.artist} (${draw.difficulty.replace("Basic", "Beginner")} ${card.difficulty})\n`
                         }
                     }
+
+                    dMessageText += `\nYour first score registered on the StepManiaX servers for a given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
 
                     await sendDiscordMessage(e, dMessageText);
                     eUpdated = true;
@@ -436,7 +441,7 @@ client.login(secrets.discordToken).then(async () => {
                     let remainingPlayers = e.participants.filter((rP) => rP.losses < 2);
                     if (remainingPlayers.length == 1) {
                         console.log(`Congratulations ${remainingPlayers[0].tag} for winning ${e.name}!`);
-                        await sendDiscordMessage(e, `Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+                        await sendDiscordMessage(e, `# Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
                         e.completed = true;
                     } else {
                         e.currentPeriod += 1;
