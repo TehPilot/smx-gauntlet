@@ -7,3 +7,6 @@ node_modules/
 
 # package lock (fake af)
 package-lock.json
+
+statmaniax-wild-leaderboard.js
+leaderboard.js

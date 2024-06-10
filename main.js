@@ -35,6 +35,7 @@ intents: [
 const charts = require("./data/chart-data.js");
 const songs  = require("./data/song-data.js");
 const secrets = require("./data/secrets.js");
+const leaderboard = require("./data/leaderboard.js");
 
 /* // API parameters for reference:
 ---------------------------------------------------------
@@ -133,17 +134,17 @@ async function importEventData() {
 
 // calculates dance point / leaderboard point value of a score
 function calculateLeaderboardScore(score, diff) {
-    return (score * diff * diff) / 1000;
+    return Math.floor((score * diff * diff) / 1000);
 }
 
 // all cron schedules in one place for modifying.
 // remove the last asterisk in each one to switch from per-second to per-hour processing
 const schedules = {
-    eventInitialize:    "0,20,40 */1 * * * *",
-    periodStart:        "3,23,43 */1 * * * *",
-    periodEnd:          "6,26,46 */1 * * * *",
-    eventAdvance:       "9,29,49 */1 * * * *",
-    importEvent:        "55 4 * * * *"
+    eventInitialize:    "0,20,40 */1 * * *",
+    periodStart:        "3,23,43 */1 * * *",
+    periodEnd:          "6,26,46 */1 * * *",
+    eventAdvance:       "9,29,49 */1 * * *",
+    importEvent:        "55 4 * * *"
 }
 
 // control flags that make sure if a scheduled job is already running,
@@ -243,6 +244,7 @@ client.login(secrets.discordToken).then(async () => {
                             && c.difficulty <= draw.upper
                             && c.is_enabled
                             && !e.excludeCharts.includes(c._id)
+                            && !activePeriod.excludeCharts.includes(c._id)
                         );
 
                         // this basically shuffles all valid charts in a range
@@ -252,7 +254,7 @@ client.login(secrets.discordToken).then(async () => {
 
                         // take only what we need from the valid charts
                         // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
-                        cardDraw = cardDraw.slice(0, draw.quantity);
+                        cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
 
                         for (card of cardDraw) {
                             // push the retrieved chart IDs from the draw into the period's chart list
@@ -268,7 +270,7 @@ client.login(secrets.discordToken).then(async () => {
                         }
                     }
 
-                    dMessageText += `\nYour first score registered on the StepManiaX servers for a given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
+                    dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
 
                     await sendDiscordMessage(e, dMessageText);
                     eUpdated = true;
@@ -328,7 +330,7 @@ client.login(secrets.discordToken).then(async () => {
                             let pScore = 0;
                             if (pScores.length > 0) {
                                 pScore = pScores[0].score;
-                                pFinalScore += pScores[0].score;
+                                pFinalScore += pScore;
                             }
                             console.log(`Player ${p.tag} on chart ${c._id}: ${pScore}`);
                         }
@@ -336,19 +338,23 @@ client.login(secrets.discordToken).then(async () => {
                         // push the player's results to a table to be reviewed
                         roundData.push({
                             player: p.tag,
-                            score: pFinalScore
+                            score: pFinalScore,
+                            rank: leaderboard.wild.find((r) => r.tag === p.tag).rank
                         });
 
                     }
 
                     // sort the table by score (used to determine winners and losers).
-                    // no tiebreaker atm
+                    // tiebreak on saved wild data
                     roundData.sort(function(a, b) {
+                        if (b.score === a.score) {
+                            return a.rank - b.rank;
+                        }
                         return b.score - a.score;
                     });
                     console.log(roundData);
 
-                    // TODO: something else for showing score data. not ideal for a ton of participants due to Discord message size limits.
+                    // TODO: something else for showing score data. not ideal for a ton of participants due to Discord message size limits
                     await sendDiscordMessage(e, `**${e.name} - Round ${e.currentPeriod + 1} - Raw Results**\n\n\`\`\`${JSON.stringify(roundData, null, 4)}\`\`\``)
 
                     let dMessageText = `# ${e.name} - Round ${e.currentPeriod + 1} Results\n\n`;
