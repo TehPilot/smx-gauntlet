@@ -4,6 +4,7 @@ events/
 save/
 test/
 node_modules/
+ignore/
 
 # package lock (fake af)
 package-lock.json

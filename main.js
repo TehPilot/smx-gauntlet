@@ -318,13 +318,14 @@ client.login(secrets.discordToken).then(async () => {
                     
                     console.log(`Player results for event ${e.name}; period ${e.currentPeriod}:`);
                     let roundData = [];
-
+                    
                     // filter out players who have been eliminated (2 losses)
                     let validParticipants = e.participants.filter((vP) => vP.losses < 2);
                     for (p of validParticipants) {
 
                         // retrieve player's scores on charts and sum them up for round end total
                         let pFinalScore = 0;
+                        let scoreData = "";
                         for (c of activePeriod.charts) {
                             let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag);
                             let pScore = 0;
@@ -333,12 +334,14 @@ client.login(secrets.discordToken).then(async () => {
                                 pFinalScore += pScore;
                             }
                             console.log(`Player ${p.tag} on chart ${c._id}: ${pScore}`);
+                            scoreData += `${c._id}: ${pScore}; `;
                         }
 
                         // push the player's results to a table to be reviewed
                         roundData.push({
                             player: p.tag,
                             score: pFinalScore,
+                            breakdown: scoreData.substring(0, scoreData.length - 2),
                             rank: leaderboard.wild.find((r) => r.tag === p.tag).rank
                         });
 
