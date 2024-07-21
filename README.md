@@ -9,10 +9,21 @@ Not included in this repository:
 - the directories necessary for data persistence and event loading/maintenance
 - (some) test files, scripts, and ancillary programs I've used to test or validate certain functionality
 
+## Changes ⌚
+
+### 21 July 2024
+- Switched to a Grand Prix-style score accumulation method.
+- Reformatted many messages output by the bot.
+- Modules are now hot-reloadable, so data can be updated without having to reset the program.
+- The functionality of utilities `get-chart-data.js` and `get-song-data.js` are now part of a scheduled task run by the program.
+- Discord messages are now batched, so violations of Discord's maximum message length (2000 characters) are avoided.
+- Event data now includes new parameters: `participants[].points` to track a participant's point total over multiple rounds, and `prixPoints` to indicate how many points are awarded for placements earned on individual charts.
+- Cleaned up some console logging and code comments at my discretion.
+
 ## Features 🧰
 
 - Very basic card draw, with assurances that no charts are duplicated throughout an event's run, and support for excluding charts in specific rounds (focused on restricting newer content drops from draw until enough time has elapsed)
-- Pulls player scores, tallies them, and assigns wins/losses per round (and eliminating players accordingly). The only supported logic at this time is first-score only submissions, and sum-of-money-score as the scoring mechanism.
+- Pulls player scores, tallies them, and assigns wins/losses per round (and eliminating players accordingly). The only supported logic at this time is first-score only submissions, and (as of 21 July 2024) a Grand Prix-style scoring system that awards points based on relative performance per chart.
 - Ability to run multiple events concurrently, with the intent being for multiple divisions to be executed in parallel (e.g. lower and upper level singles, singles and doubles, etc. with separate competitors).
 - Data persistence (if the program crashes, it picks an event up where it left off on next run) and side-loading new events (via dropping a file defining the rounds + deadlines on the server).
 - Discord bot output for event updates, results, and key notices.

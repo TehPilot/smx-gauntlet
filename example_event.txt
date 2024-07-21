@@ -7,42 +7,50 @@
         {
             "tag":"Corey",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"emcat",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"JellySlosh",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"JJK.",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"Melody",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"SenPi",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"Tink",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         },
         {
             "tag":"Pilot",
             "wins":0,
-            "losses":0
+            "losses":0,
+            "points":0
         }
     ],
     "periods":[
@@ -392,5 +400,6 @@
     "currentPeriod":0,
     "excludeCharts":[
         
-    ]
+    ],
+    "prixPoints":[5, 3, 2, 1]
 }
