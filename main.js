@@ -214,14 +214,14 @@ client.login(secrets.discordToken).then(async () => {
                         // filter all valid charts down to ones in the specified difficulty and level range.
                         // also exclude anything we've already drawn (no duplicates)
                         // also somehow I got removed song charts, so I have to filter those too ...
-                        let cardDraw = charts.data.filter((c) =>
-                            c.difficulty_name.startsWith(draw.difficulty.toLowerCase())                                 // difficulty name matches
-                            && c.difficulty >= draw.lower                                                               // in bound for difficulty range
-                            && c.difficulty <= draw.upper   
-                            && c.is_enabled                                                                             // chart is enabled (doesn't belong to a disabled song)
-                            && !e.excludeCharts.includes(c._id)                                                         // not in the event-wide exclusion list
-                            && !activePeriod.excludeCharts.includes(c._id)                                              // not in the period-specific exclusion list
-                            && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000       // is at least 30 days old (at time of draw)
+                        let cardDraw = charts.data.filter((c) =>                   
+                            draw.difficulty.toLowerCase().includes(c.difficulty_display.replace("+", "").toLowerCase())     // difficulty name matches
+                            && c.difficulty >= draw.lower                                                                   // in bound for difficulty range
+                            && c.difficulty <= draw.upper
+                            && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
+                            && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
+                            && !activePeriod.excludeCharts.includes(c._id)                                                  // not in the period-specific exclusion list
+                            && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
                         );
 
                         // this basically shuffles all valid charts in a range
@@ -300,10 +300,10 @@ client.login(secrets.discordToken).then(async () => {
                     
                     // filter out players who have been eliminated (2 losses)
                     let validParticipants = e.participants.filter((vP) => vP.losses < 2);
-                    
+
                     // set up the table to sort players by round end results
                     for (let p of validParticipants) {
-                        let pRank = leaderboard.wild.find((r) => r.tag === p.tag).rank;
+                        let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p.tag).rank;
                         
                         roundData.push({
                             player: p.tag,

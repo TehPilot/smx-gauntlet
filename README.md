@@ -11,6 +11,11 @@ Not included in this repository:
 
 ## Changes ⌚
 
+### 31 July 2024
+- Added support for multiple difficulties in card draw.
+- Replaced `get-statmaniax-wild-leaderboard.js` with `get-statmaniax-leaderboards.js`, a more generic utility that retrieves data for all seven discrete leaderboards hosted on StatManiaX.
+- Event data now includes a new parameter: `leaderboard` to specify what leaderboard should be used to break ties.
+
 ### 21 July 2024
 - Switched to a Grand Prix-style score accumulation method.
 - Reformatted many messages output by the bot.
@@ -36,7 +41,7 @@ The following utilities are included in this repository:
 
 **`get-song-data.js`**: used to retrieve song data (title, artist, etc.) from the endpoint available in DesktopMan's API. It produces a single module file with the song data.
 
-**`get-statmaniax-wild-leaderboard.js`**: used to retrieve the Wild leaderboard from StatManiaX (https://statmaniax.com/ranking/wild). Unlike the other API endpoints which return JSON, this is a static webpage served by StatMX which I am scraping and formatting into an object I can call from a module file. It requires a sizeable amount of available memory to run.
+**`get-statmaniax-leaderboards.js`**: used to retrieve all mode leaderboards from StatManiaX (https://statmaniax.com/ranking/). Unlike the other API endpoints which return JSON, this is a static webpage served by StatMX which I am scraping and formatting into an object I can call from a module file. It requires a sizeable amount of available memory to run.
 
 ## License 🕺
 

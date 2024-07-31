@@ -59,19 +59,19 @@
             "end":"2024-06-17 06:59:59",
             "draws":[
                 {
-                    "difficulty":"Wild",
+                    "difficulty":"Hard|Wild",
                     "lower":19,
                     "upper":21,
                     "quantity":2
                 },
                 {
-                    "difficulty":"Wild",
+                    "difficulty":"Hard|Wild",
                     "lower":19,
                     "upper":19,
                     "quantity":1
                 },
                 {
-                    "difficulty":"Wild",
+                    "difficulty":"Hard|Wild",
                     "lower":20,
                     "upper":20,
                     "quantity":1
@@ -97,13 +97,13 @@
             "end":"2024-06-24 06:59:59",
             "draws":[
                 {
-                    "difficulty":"Wild",
+                    "difficulty":"Hard|Wild",
                     "lower":20,
                     "upper":22,
                     "quantity":2
                 },
                 {
-                    "difficulty":"Wild",
+                    "difficulty":"Hard|Wild",
                     "lower":20,
                     "upper":20,
                     "quantity":1
@@ -401,5 +401,6 @@
     "excludeCharts":[
         
     ],
-    "prixPoints":[5, 3, 2, 1]
+    "prixPoints":[5, 3, 2, 1],
+    "leaderboard":"wild"
 }
