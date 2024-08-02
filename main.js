@@ -108,6 +108,12 @@ function calculateLeaderboardScore(score, diff) {
     return Math.floor((score * diff * diff) / 1000);
 }
 
+// calculates max rounds (approx.) for an event
+function getMaxRounds(players) {
+    let w = Math.ceil(Math.log2(players));
+    return w + Math.ceil(Math.log2(w)) + 1;
+}
+
 // capitalize (lol)
 async function capitalize(text) {
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -494,7 +500,6 @@ client.login(secrets.discordToken).then(async () => {
         console.log("Running routine: event period ending");
 
         let eUpdated = false;
-        let eOver = [];
 
         for (let e of events) {
             if (e.started && !e.completed) {
@@ -539,16 +544,18 @@ client.login(secrets.discordToken).then(async () => {
 
                     eUpdated = true;
                 }
-            } else if (e.started && e.completed) {
-                eOver.push(events.indexOf(e));
             }
         }
 
         // remove events from the save data if they've been completed.
-        // TODO: maybe save the data to a file for future analysis if needed?
         // imperative to walk the array backwards to not screw up indices
         for (let i = events.length - 1; i >= 0; i--) {
             if (events[i].completed) {
+
+                // write event data to a file for postmortem review
+                let timestamp = ((new Date()).getTime() / 1000).toString();
+                fs.writeFileSync(`./events/finished/${e.name}_${timestamp}.txt`, JSON.stringify(e, null, 4), "utf-8");
+
                 events.splice(i, 1);
                 eUpdated = true;
             }
