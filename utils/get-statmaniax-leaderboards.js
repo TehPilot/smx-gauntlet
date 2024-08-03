@@ -1,7 +1,6 @@
 const axios = require("axios");
 const jsdom = require("jsdom");
 const fs = require("fs");
-const process = require("process");
 
 const {JSDOM} = jsdom;
 
@@ -20,7 +19,6 @@ async function getLeaderboards() {
             let rankVar = 1;
             for (player of board) {
                 let rawData = player.textContent.trim();
-                console.log(rawData);
                 rawData = rawData.split(": ")[1].split("\n")[0];
                 ranking.push({
                     tag: rawData,
