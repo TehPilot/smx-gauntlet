@@ -53,6 +53,23 @@ async function sendDiscordMessage(eventRef, messageText) {
     return;
 }
 
+async function sendDiscordMessageId(channelId, messageText) {
+    // wait for the channel reference
+    let channelRef = await client.channels.fetch(channelId);
+
+    // just in case our message is huge, split it up and batch send
+    let messageChunks = messageText.match(/(.|[\r\n]){1,1950}/g);
+    for (let message of messageChunks) {
+        channelRef.send({
+            content: message
+        });
+
+        // a mimir
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    return;
+}
+
 // converts a date string to a Unix timestamp, in whole seconds
 function getUnixTimestamp(dateString) {
     return new Date(dateString).getTime() / 1000;
@@ -293,6 +310,8 @@ client.login(secrets.discordToken).then(async () => {
         for (let e of events) {
             if (e.started && !e.completed) {
 
+                console.log(`Processing event ${e.name}`);
+
                 // get the current period of the event
                 let activePeriod = e.periods[e.currentPeriod];
                 let eEndTime = getUnixTimestamp(activePeriod.end);
@@ -301,6 +320,8 @@ client.login(secrets.discordToken).then(async () => {
                 // only tabulate scores if the event period is over
                 if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
                     
+                    console.log(`Event period ended; beginning processing loop`);
+
                     let roundData = [];
                     let currentTime = getUnixTimestamp(new Date());
                     
@@ -309,8 +330,8 @@ client.login(secrets.discordToken).then(async () => {
 
                     // set up the table to sort players by round end results
                     for (let p of validParticipants) {
-                        let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p.tag).rank;
-                        
+                        let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p.tag);
+                        pRank = (pRank === undefined ? 99999 : pRank.rank);
                         roundData.push({
                             player: p.tag,
                             points: 0,
@@ -319,8 +340,11 @@ client.login(secrets.discordToken).then(async () => {
                         });
                     }
 
+                    console.log(`Leaderboard retrieved (mode: ${e.leaderboard})`);
+
                     // go through each chart in the draw
                     for (let c of activePeriod.charts) {
+                        console.log(`Reviewing chart ${c._id}`);
                         var roundChartScores = [];
 
                         // get each player's score
@@ -329,7 +353,7 @@ client.login(secrets.discordToken).then(async () => {
                             // default values
                             let pScore = 0;
                             let pDate = currentTime;
-                            let pRank = roundData.find((sD) => sD.player === p.tag).rank;
+                            // let pRank = roundData.find((sD) => sD.player === p.tag).rank;
 
                             let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag);
                             if (pScores.length > 0) {
@@ -344,17 +368,24 @@ client.login(secrets.discordToken).then(async () => {
                                 player: p.tag,
                                 score: pScore,
                                 time: pDate,
-                                rank: pRank,
                                 points: 0
                             });
                         }
 
                         // sort the scores, highest to lowest
                         // tiebreak: first submission, then leaderboard rank
+                        
+                        let chartLeaderboard = c.difficulty_display.replace('+', '').replace("basic", "beginner");
                         roundChartScores.sort((a,b) => {
                             if (b.score === a.score) {
                                 if (b.time === a.time) {
-                                    return a.rank - b.rank;
+                                    
+                                    let aRank = leaderboard[chartLeaderboard].find((r) => r.tag === a.player);
+                                    aRank = (aRank === undefined ? 99999 : aRank.rank);
+                                    let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
+                                    bRank = (bRank === undefined ? 99999 : bRank.rank);
+                                    
+                                    return aRank - bRank;
                                 }
                                 return a.time - b.time;
                             }
@@ -553,11 +584,14 @@ client.login(secrets.discordToken).then(async () => {
             if (events[i].completed) {
 
                 // write event data to a file for postmortem review
-                let timestamp = ((new Date()).getTime() / 1000).toString();
-                fs.writeFileSync(`./events/finished/${e.name}_${timestamp}.txt`, JSON.stringify(e, null, 4), "utf-8");
-
-                events.splice(i, 1);
-                eUpdated = true;
+                let timestamp = Math.floor(((new Date()).getTime() / 1000).toString());
+                try {
+                    fs.writeFileSync(`./events/finished/${events[i].discordChannel}_${timestamp}.txt`, JSON.stringify(events[i], null, 4), "utf-8");
+                    events.splice(i, 1);
+                    eUpdated = true;
+                } catch (e) {
+                    console.error(e);
+                }                
             }
         }
 
@@ -587,6 +621,7 @@ client.login(secrets.discordToken).then(async () => {
 
         let totalCharts = charts.data.length;
         let totalSongs = songs.data.length;
+        console.log(`Total song count: ${totalSongs} // Total chart count: ${totalCharts}`);
 
         console.log("Downloading updated chart data...");
         await axios.get("http://smx.573.no/api/charts").then((res) => {
@@ -602,7 +637,9 @@ client.login(secrets.discordToken).then(async () => {
             charts = require("./data/chart-data.js");
 
             // incl. here to notify when the underlying chart data has changed
+            console.log(`New data total charts: ${charts.data.length}`);
             if (totalCharts != charts.data.length) {
+                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New chart data has been downloaded.`);
                 console.log("Chart data has changed!");
             }
         });
@@ -621,7 +658,9 @@ client.login(secrets.discordToken).then(async () => {
             songs = require("./data/song-data.js");
 
             // incl. here to notify when underlying song data has changed
+            console.log(`New data total songs: ${songs.data.length}`);
             if (totalSongs != songs.data.length) {
+                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New song data has been downloaded.`);
                 console.log("Song data has changed!");
             }
 
