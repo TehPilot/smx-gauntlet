@@ -1,3 +1,7 @@
+# 26 August 2024
+- Added a new data file, `data/rerates.js`. This includes a list of rating differences between the official game and the data shown in the mobile application.
+- Added logic in the function which reloads game data to correct the inconsistencies between ratings in the chart data and ratings in the game proper.
+
 # 25 August 2024
 - When tiebreaking for individual scores in an event's round, the leaderboard rank of players pertinent to that chart specifically will be used to break ties.
   - As an example: if two players have an exact score tie on a Hard chart, the players' rank on the Hard leaderboard will be used to break ties. If there is another exact score tie on a Wild chart in the same event, the players' rank on the Wild leaderboard will be used to break that tie.

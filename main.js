@@ -14,6 +14,7 @@ const client = new Client({
 var charts = require("./data/chart-data.js");
 var songs  = require("./data/song-data.js");
 var leaderboard = require("./data/leaderboard.js");
+var rerates = require("./data/rerates.js");
 const secrets = require("./data/secrets.js");
 
 var events = [];
@@ -623,11 +624,28 @@ client.login(secrets.discordToken).then(async () => {
         let totalSongs = songs.data.length;
         console.log(`Total song count: ${totalSongs} // Total chart count: ${totalCharts}`);
 
+        console.log("Reloading rerate data...");
+        delete require.cache[require.resolve("./data/rerates.js")];
+        rerates = require("./data/rerates.js");
+        console.log("Done");
+
         console.log("Downloading updated chart data...");
         await axios.get("http://smx.573.no/api/charts").then((res) => {
             
             // officials (is_edit = false, is_enabled = 1)
             let officials = res.data.filter((c) => (c.is_edit != true && c.is_enabled === 1)); {
+
+                // apply rerates not reflected in the official data
+                for (let chart in officials) {
+                    if (rerates[officials[chart]._id] !== undefined) {
+                        if (rerates[officials[chart]._id].app === officials[chart].difficulty) {
+                            officials[chart].difficulty = rerates[officials[chart]._id].game;
+                            console.log(`Rerate applied to chart ID ${officials[chart]._id}`);
+                        }
+                    }
+                }
+
+                // write to file
                 fs.writeFileSync("./data/chart-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(officials, null, 4)}\n\n}`, 'utf-8');
                 console.log("Done (officials)");
             }
@@ -667,8 +685,10 @@ client.login(secrets.discordToken).then(async () => {
         });
 
         // reload the leaderboard
+        console.log("Reloading leaderboard file...");
         delete require.cache[require.resolve("./data/leaderboard.js")];
         leaderboard = require("./data/leaderboard.js");
+        console.log("Done");
 
         jobRunning.updateGameData = false;
 
