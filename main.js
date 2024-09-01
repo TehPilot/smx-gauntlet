@@ -104,6 +104,7 @@ async function importEventData() {
     let newEvents = false;
 
     for (let file of newEventFiles) {
+        console.log(`Loading event from file ${file}...`);
         let eData = JSON.parse(fs.readFileSync(`./events/new/${file}`));
         events = events.concat(eData);
         console.log("New event loaded");
@@ -140,11 +141,11 @@ async function capitalize(text) {
 // all cron schedules in one place for modifying.
 // remove the last asterisk in each one to switch from per-second to per-hour processing
 const schedules = {
-    eventInitialize:    "0,20,40 */1 * * *",
-    periodStart:        "3,23,43 */1 * * *",
-    periodEnd:          "6,26,46 */1 * * *",
-    eventAdvance:       "9,29,49 */1 * * *",
-    importEvent:        "55 * * * *",
+    eventInitialize:    "0,20,40 */1 * * * *",
+    periodStart:        "3,23,43 */1 * * * *",
+    periodEnd:          "6,26,46 */1 * * * *",
+    eventAdvance:       "9,29,49 */1 * * * *",
+    importEvent:        "55 * * * * *",
     updateGameData:     "56 23 * * 7"
 }
 
@@ -273,7 +274,7 @@ client.login(secrets.discordToken).then(async () => {
                         
                     }
 
-                    dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.\n\nGood Luck and Have Fun!`;
+                    dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
 
                     await sendDiscordMessage(e, dMessageText);
                     eUpdated = true;
@@ -357,12 +358,14 @@ client.login(secrets.discordToken).then(async () => {
                             // let pRank = roundData.find((sD) => sD.player === p.tag).rank;
 
                             let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag);
+                            let pScoreId = "N/A";
                             if (pScores.length > 0) {
                                 pScore = pScores[0].score;
+                                pScoreId = pScores[0]._id.toString();
                                 pDate = getUnixTimestamp(new Date(pScores[0].created_at));
                             }
 
-                            console.log(`Player ${p.tag}'s result on ${c._id}: ${pScore}`);
+                            console.log(`Player ${p.tag}'s result on ${c._id}: ${pScore} (score ID: ${pScoreId})`);
 
                             // push each player's score into the table
                             roundChartScores.push({
@@ -399,7 +402,7 @@ client.login(secrets.discordToken).then(async () => {
                         }
 
                         let songRef = songs.data.find((s) => s._id === c.song_id);
-                        var chartResultsString = `### ${e.name} - Round ${e.currentPeriod + 1} Chart Results\n> **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty})\n\n`;
+                        var chartResultsString = `### ${e.name} - Round ${e.currentPeriod + 1} Chart Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty})\n\n`;
 
                         // tally up points
                         let index = 1;
@@ -446,7 +449,7 @@ client.login(secrets.discordToken).then(async () => {
                         let pRef = e.participants[pIndex];
                         pRef.points += rounds.points;
 
-                        roundResultsString += `#${index}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (score total: ${rounds.totalScore}; rank: ${rounds.rank})\n`;
+                        roundResultsString += `#${index}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (s: ${rounds.totalScore}; r: ${(rounds.rank !== 99999 ? rounds.rank : "N/A")})\n`;
                         index++;
                     }
 
@@ -458,13 +461,13 @@ client.login(secrets.discordToken).then(async () => {
                     var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
                         return a.concat(v.player)
                     }, []);
-                    dMessageText += `## Winners\n${winners.join("\n")}\n`;
+                    dMessageText += `**Winners:**\n${winners.join("\n")}\n`;
 
                     // bottom slide: losers
                     var losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
                         return a.concat(v.player)
                     }, []);
-                    dMessageText += `## Losers\n${losers.join("\n")}`;
+                    dMessageText += `**\nLosers:**\n${losers.join("\n")}`;
 
                     // award the winners a victory
                     for (w of winners) {
@@ -480,7 +483,7 @@ client.login(secrets.discordToken).then(async () => {
 
                     await sendDiscordMessage(e, dMessageText);
                 
-                    let elimMessageText = `## :warning: Elimination Notice\n`;
+                    let elimMessageText = `## :warning: Eliminations\n`;
                     let eliminatedTotal = 0;
 
                     // hand the losers a loss and note if they have been eliminated
@@ -506,11 +509,13 @@ client.login(secrets.discordToken).then(async () => {
                     activePeriod.completed = true;
                     eUpdated = true;
                 } else {
+                    /*
                     if (activePeriod.completed) {
                         console.log("Event already ended");
                     } else {
                         console.log(`Period not over yet - current time: ${currentTime} | end time: ${eEndTime} `);
                     }
+                    */
                 }
             }
         }
@@ -659,6 +664,9 @@ client.login(secrets.discordToken).then(async () => {
             if (totalCharts != charts.data.length) {
                 sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New chart data has been downloaded.`);
                 console.log("Chart data has changed!");
+            } else {
+                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Chart data has been refreshed.`);
+                console.log("Chart data was re-downloaded");
             }
         });
 
@@ -680,6 +688,9 @@ client.login(secrets.discordToken).then(async () => {
             if (totalSongs != songs.data.length) {
                 sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New song data has been downloaded.`);
                 console.log("Song data has changed!");
+            } else {
+                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Song data has been refreshed.`);
+                console.log("Song data was re-downloaded");
             }
 
         });
@@ -689,6 +700,11 @@ client.login(secrets.discordToken).then(async () => {
         delete require.cache[require.resolve("./data/leaderboard.js")];
         leaderboard = require("./data/leaderboard.js");
         console.log("Done");
+
+        fs.stat("./data/leaderboard.js", function(e, s) {
+            let mTime = s.mtime;
+            sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Leaderboard data reloaded (local file last modified: ${mTime}).`);
+        });
 
         jobRunning.updateGameData = false;
 
