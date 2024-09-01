@@ -141,11 +141,11 @@ async function capitalize(text) {
 // all cron schedules in one place for modifying.
 // remove the last asterisk in each one to switch from per-second to per-hour processing
 const schedules = {
-    eventInitialize:    "0,20,40 */1 * * * *",
-    periodStart:        "3,23,43 */1 * * * *",
-    periodEnd:          "6,26,46 */1 * * * *",
-    eventAdvance:       "9,29,49 */1 * * * *",
-    importEvent:        "55 * * * * *",
+    eventInitialize:    "0,20,40 */1 * * *",
+    periodStart:        "3,23,43 */1 * * *",
+    periodEnd:          "6,26,46 */1 * * *",
+    eventAdvance:       "9,29,49 */1 * * *",
+    importEvent:        "55 * * * *",
     updateGameData:     "56 23 * * 7"
 }
 
