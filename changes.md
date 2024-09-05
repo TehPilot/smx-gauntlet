@@ -1,3 +1,6 @@
+# 3 September 2024
+- Changed the point tabulation routine for individual charts to better address score ties, especially when there are multiple perfect scores for a given chart. Now, tied players will all receive the same amount of points for a chart, rather than placements being determined by submission time or leaderboard rank.
+
 # 26 August 2024
 - Added a new data file, `data/rerates.js`. This includes a list of rating differences between the official game and the data shown in the mobile application.
 - Added logic in the function which reloads game data to correct the inconsistencies between ratings in the chart data and ratings in the game proper.

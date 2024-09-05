@@ -146,7 +146,7 @@ const schedules = {
     periodEnd:          "6,26,46 */1 * * *",
     eventAdvance:       "9,29,49 */1 * * *",
     importEvent:        "55 * * * *",
-    updateGameData:     "56 23 * * 7"
+    updateGameData:     "0 2 * * 1"
 }
 
 // control flags that make sure if a scheduled job is already running,
@@ -397,8 +397,12 @@ client.login(secrets.discordToken).then(async () => {
                         });
 
                         // award points based on position
-                        for (let i = 0; i < roundChartScores.length; i++) {
-                            roundChartScores[i].points += e.prixPoints[Math.min(i, e.prixPoints.length - 1)];
+                        // 9/3/24: if there's a tie, allocate the same points to both players. this moves point values up; going to feel way better on ties
+                        for (let i = 0, a = 0; i < roundChartScores.length; i++) {
+                            roundChartScores[i].points += e.prixPoints[Math.min(a++, e.prixPoints.length - 1)];
+                            if (i < roundChartScores.length - 1 && roundChartScores[i].score === roundChartScores[i + 1].score) {
+                                a -= 1;
+                            }
                         }
 
                         let songRef = songs.data.find((s) => s._id === c.song_id);
