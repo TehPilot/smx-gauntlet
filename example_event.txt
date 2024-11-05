@@ -1,11 +1,43 @@
 {
-    "name":"Fully Automatic Remote Test",
-    "discordChannel":"1247744841207644201",
+    "name":"FART Swiss Test",
+    "discordChannel":"1247017697770737685",
     "started":false,
     "completed":false,
+    "format":"swiss",
+    "max_losses":999,
     "participants":[
         {
-            "tag":"Corey",
+            "tag":"Daaanty",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"hintz",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"chezmix",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"watersalads",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"SteveSnowmn",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"JimboSMX",
             "wins":0,
             "losses":0,
             "points":0
@@ -17,19 +49,25 @@
             "points":0
         },
         {
-            "tag":"JellySlosh",
-            "wins":0,
-            "losses":0,
-            "points":0
-        },
-        {
             "tag":"JJK.",
             "wins":0,
             "losses":0,
             "points":0
         },
         {
-            "tag":"Melody",
+            "tag":"Eesa",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"MaestroGee",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"Corey",
             "wins":0,
             "losses":0,
             "points":0
@@ -41,7 +79,19 @@
             "points":0
         },
         {
-            "tag":"Tink",
+            "tag":"WDrM",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"JellySlosh",
+            "wins":0,
+            "losses":0,
+            "points":0
+        },
+        {
+            "tag":"GDon",
             "wins":0,
             "losses":0,
             "points":0
@@ -53,346 +103,244 @@
             "points":0
         }
     ],
+    "prixPoints":[10, 8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1],
+    "leaderboard":"wild",
+    "draws":{
+        "0-0": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            }
+        ],
+        "0-1": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            }
+        ],
+        "1-0": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":22,
+                "upper":22,
+                "quantity":2
+            }
+        ],
+        "0-2": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":18,
+                "upper":18,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            }
+        ],
+        "1-1": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            }
+        ],
+        "2-0": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":22,
+                "upper":22,
+                "quantity":2
+            }
+        ],
+        "0-3": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":18,
+                "upper":18,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            }
+        ],
+        "1-2": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":19,
+                "upper":19,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            }
+        ],
+        "2-1": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":20,
+                "upper":20,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":22,
+                "upper":22,
+                "quantity":2
+            }
+        ],
+        "3-0": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":21,
+                "upper":21,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":22,
+                "upper":22,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":23,
+                "upper":23,
+                "quantity":2
+            }
+        ]
+    },
     "periods":[
         {
             "start":"2024-06-10 07:00:00",
             "end":"2024-06-17 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Hard|Wild",
-                    "lower":19,
-                    "upper":21,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Hard|Wild",
-                    "lower":19,
-                    "upper":19,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Hard|Wild",
-                    "lower":20,
-                    "upper":20,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":21,
-                    "quantity":1
-                }
-            ],
-            "charts":[
+            "charts":{
                 
-            ],
-            "excludeCharts":[
-                14847,14836,14825,14814,14803
-            ],
+            },
             "started":false,
             "completed":false
         },
         {
             "start":"2024-06-17 07:00:00",
             "end":"2024-06-24 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Hard|Wild",
-                    "lower":20,
-                    "upper":22,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Hard|Wild",
-                    "lower":20,
-                    "upper":20,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":21,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":22,
-                    "quantity":1
-                }
-            ],
-            "charts":[
+            "charts":{
                 
-            ],
-            "excludeCharts":[
-                14847,14836,14825,14814,14803
-            ],
+            },
             "started":false,
             "completed":false
         },
         {
             "start":"2024-06-24 07:00:00",
             "end":"2024-07-01 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":23,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":21,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":22,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                }
-            ],
-            "charts":[
+            "charts":{
                 
-            ],
-            "excludeCharts":[
-                14847,14836,14825,14814,14803
-            ],
+            },
             "started":false,
             "completed":false
         },
         {
             "start":"2024-07-01 07:00:00",
             "end":"2024-07-08 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":23,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":21,
-                    "upper":21,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":22,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                }
-            ],
-            "charts":[
+            "charts":{
                 
-            ],
-            "excludeCharts":[
-                14847,14836,14825,14814,14803
-            ],
-            "started":false,
-            "completed":false
-        },
-        {
-            "start":"2024-07-08 07:00:00",
-            "end":"2024-07-15 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":24,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":22,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":24,
-                    "quantity":1
-                }
-            ],
-            "charts":[
-                
-            ],
-            "excludeCharts":[
-
-            ],
-            "started":false,
-            "completed":false
-        },
-        {
-            "start":"2024-07-15 07:00:00",
-            "end":"2024-07-22 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":24,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":22,
-                    "upper":22,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":24,
-                    "quantity":1
-                }
-            ],
-            "charts":[
-                
-            ],
-            "excludeCharts":[
-
-            ],
-            "started":false,
-            "completed":false
-        },
-        {
-            "start":"2024-07-22 07:00:00",
-            "end":"2024-07-29 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":25,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":24,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":25,
-                    "upper":25,
-                    "quantity":1
-                }
-            ],
-            "charts":[
-                
-            ],
-            "excludeCharts":[
-
-            ],
-            "started":false,
-            "completed":false
-        },
-        {
-            "start":"2024-07-29 07:00:00",
-            "end":"2024-08-05 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":25,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":23,
-                    "upper":23,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":24,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":25,
-                    "upper":25,
-                    "quantity":1
-                }
-            ],
-            "charts":[
-                
-            ],
-            "excludeCharts":[
-
-            ],
-            "started":false,
-            "completed":false
-        },
-        {
-            "start":"2024-08-05 07:00:00",
-            "end":"2024-08-12 06:59:59",
-            "draws":[
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":26,
-                    "quantity":2
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":24,
-                    "upper":24,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":25,
-                    "upper":25,
-                    "quantity":1
-                },
-                {
-                    "difficulty":"Wild",
-                    "lower":26,
-                    "upper":26,
-                    "quantity":1
-                }
-            ],
-            "charts":[
-                
-            ],
-            "excludeCharts":[
-
-            ],
+            },
             "started":false,
             "completed":false
         }
@@ -400,7 +348,5 @@
     "currentPeriod":0,
     "excludeCharts":[
         
-    ],
-    "prixPoints":[5, 3, 2, 1],
-    "leaderboard":"wild"
+    ]
 }
