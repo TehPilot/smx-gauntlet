@@ -209,20 +209,20 @@
         "0-2": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":16,
-                "upper":16,
+                "lower":14,
+                "upper":14,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":17,
-                "upper":17,
+                "lower":15,
+                "upper":15,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":18,
-                "upper":18,
+                "lower":16,
+                "upper":16,
                 "quantity":2
             }
         ],
