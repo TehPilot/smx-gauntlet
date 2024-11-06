@@ -104,205 +104,205 @@
         }
     ],
     "prixPoints":[10, 8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1],
-    "leaderboard":"wild",
+    "leaderboard":"hard",
     "draws":{
         "0-0": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
+                "lower":15,
+                "upper":15,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
-                "quantity":2
-            }
-        ],
-        "0-1": [
-            {
-                "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
-                "quantity":1
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
-                "quantity":2
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             }
         ],
         "1-0": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":22,
-                "upper":22,
-                "quantity":2
-            }
-        ],
-        "0-2": [
             {
                 "difficulty":"Hard|Wild",
                 "lower":18,
                 "upper":18,
-                "quantity":1
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
-                "quantity":2
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
                 "quantity":2
             }
         ],
-        "1-1": [
+        "0-1": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
+                "lower":15,
+                "upper":15,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             }
         ],
         "2-0": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":22,
-                "upper":22,
-                "quantity":2
-            }
-        ],
-        "0-3": [
             {
                 "difficulty":"Hard|Wild",
                 "lower":18,
                 "upper":18,
-                "quantity":1
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
-                "quantity":2
-            },
-            {
-                "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
                 "quantity":2
             }
         ],
-        "1-2": [
+        "1-1": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":19,
-                "upper":19,
+                "lower":15,
+                "upper":15,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             }
         ],
-        "2-1": [
+        "0-2": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":20,
-                "upper":20,
+                "lower":16,
+                "upper":16,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":22,
-                "upper":22,
+                "lower":18,
+                "upper":18,
                 "quantity":2
             }
         ],
         "3-0": [
             {
                 "difficulty":"Hard|Wild",
-                "lower":21,
-                "upper":21,
+                "lower":17,
+                "upper":17,
                 "quantity":1
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":22,
-                "upper":22,
+                "lower":18,
+                "upper":18,
                 "quantity":2
             },
             {
                 "difficulty":"Hard|Wild",
-                "lower":23,
-                "upper":23,
+                "lower":19,
+                "upper":19,
+                "quantity":2
+            }
+        ],
+        "2-1": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":16,
+                "upper":16,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":17,
+                "upper":17,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":18,
+                "upper":18,
+                "quantity":2
+            }
+        ],
+        "1-2": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":15,
+                "upper":15,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":16,
+                "upper":16,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":17,
+                "upper":17,
+                "quantity":2
+            }
+        ],
+        "0-3": [
+            {
+                "difficulty":"Hard|Wild",
+                "lower":14,
+                "upper":14,
+                "quantity":1
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":15,
+                "upper":15,
+                "quantity":2
+            },
+            {
+                "difficulty":"Hard|Wild",
+                "lower":16,
+                "upper":16,
                 "quantity":2
             }
         ]

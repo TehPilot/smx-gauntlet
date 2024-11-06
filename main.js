@@ -14,7 +14,6 @@ const client = new Client({
 var charts = require("./data/chart-data.js");
 var songs  = require("./data/song-data.js");
 var leaderboard = require("./data/leaderboard.js");
-// var rerates = require("./data/rerates.js");
 const secrets = require("./data/secrets.js");
 
 var events = [];
@@ -22,9 +21,6 @@ var invalidated = {
     players: [],
     scores: []
 };
-
-console.log("pog");
-console.log(invalidated.players);
 
 // get a player's score for a given chart ID.
 // parameter asc=1 sorts by date ascending; it is implicitly assumed the first result from this call
@@ -34,12 +30,7 @@ async function getScore(wStart, wEnd, cId, player) {
     let response = null;
 
     await axios.get(requestUrl).then((res) => {
-        /*
-        if (res.data.length > 0) {
-            console.log(res.data);
-        }
-        */
-        response = res.data; //.filter((s) => !invalidated.scores.includes(s._id));
+        response = res.data.filter((s) => !(invalidated.scores.includes(s._id)));
     });
 
     return response;
@@ -99,14 +90,16 @@ async function loadEventData() {
 
 // loads invalidated scores/players/etc. from text file
 async function loadInvalidationData() {
-    /*
     let iDataString = fs.readFileSync("./save/invalidated.txt", "utf8");
+    console.log(`Invalidation data: ${iDataString}`);
     if (iDataString === undefined || iDataString === "") {
-        return [];
+        return {
+            players: [],
+            scores: []
+        };
     } else {
         return JSON.parse(iDataString);
     }
-        */
 }
 
 // writes event data to text file
@@ -122,7 +115,6 @@ async function writeEventData() {
 
 // writes invalidation data to text file
 async function writeInvalidationData() {
-    /*
     var iDataString = JSON.stringify(invalidated, null, 4);
     fs.writeFile("./save/invalidated.txt", iDataString, (err) => {
         if (err) {
@@ -130,7 +122,6 @@ async function writeInvalidationData() {
             return console.log(err);
         }
     });
-    */
 }
 
 
@@ -186,8 +177,8 @@ async function getPoolName(str) {
         case "1-1": return "3B";
         case "0-2": return "3C";
         case "3-0": return "4A";
-        case "1-2": return "4B";
-        case "2-1": return "4C";
+        case "2-1": return "4B";
+        case "1-2": return "4C";
         case "0-3": return "4D";
         default:    return str;
     }
@@ -263,7 +254,7 @@ client.login(secrets.discordToken).then(async () => {
 
     // start a period
     cron.schedule(schedules.periodStart, async () => {
-
+        try {
         if (jobRunning.periodStart || jobRunning.gameDataUpdate) {
             return;
         }
@@ -282,107 +273,181 @@ client.login(secrets.discordToken).then(async () => {
                 let eStartTime = getUnixTimestamp(activePeriod.start);
                 let currentTime = getUnixTimestamp(new Date().getTime());
 
-                if (!activePeriod.started && currentTime >= eStartTime) {
+                switch (e.format) {
 
-                    let dMessageText = "";
+                    case "gauntlet": 
+                        if (!activePeriod.started && currentTime >= eStartTime) {
 
-                    // start the event period
-                    activePeriod.started = true;
+                            let dMessageText = "";
 
-                    console.log(`Starting round ${e.currentPeriod + 1}`);
+                            // start the event period
+                            activePeriod.started = true;
 
-                    dMessageText += `# ${e.name} - Round ${e.currentPeriod + 1}\n`;
-                    dMessageText += `ends <t:${getUnixTimestamp(activePeriod.end)}>.\nPlay the following charts:\n`;
+                            dMessageText += `# ${e.name} - Round ${e.currentPeriod + 1}\n`;
+                            dMessageText += `ends <t:${getUnixTimestamp(activePeriod.end)}>\n\nPlay the following charts:\n`;
 
-                    // categorize participants by their W-L
-                    let participantBuckets = {};
-                    for (let p of e.participants) {
-                        let participantWL = `${p.wins}-${p.losses}`;
-                        if (participantBuckets[participantWL] === undefined) {
-                            participantBuckets[participantWL] = [];
+                            // run card draw
+                            for (let draw of activePeriod.draws) {
+
+                                // filter all valid charts down to ones in the specified difficulty and level range.
+                                // also exclude anything we've already drawn (no duplicates)
+                                // also somehow I got removed song charts, so I have to filter those too ...
+                                let cardDraw = charts.data.filter((c) =>                   
+                                    draw.difficulty.toLowerCase().includes(c.difficulty_display.replace("+", "").toLowerCase())     // difficulty name matches
+                                    && c.difficulty >= draw.lower                                                                   // in bound for difficulty range
+                                    && c.difficulty <= draw.upper
+                                    && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
+                                    && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
+                                    && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
+                                );
+
+                                // this basically shuffles all valid charts in a range
+                                cardDraw = cardDraw.map(v => ({ v, sort: Math.random()}))
+                                cardDraw = cardDraw.sort((a, b) => a.sort - b.sort)
+                                cardDraw = cardDraw.map(({v}) => v)
+
+                                // take only what we need from the valid charts
+                                // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
+                                cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
+
+                                // for everything in the draw, incl. it in the post here
+                                for (card of cardDraw) {
+                                    // push the retrieved chart IDs from the draw into the period's chart list
+                                    activePeriod.charts.push(card);
+
+                                    // also push the chart ID into the exclusion list (so they don't appear multiple times)
+                                    e.excludeCharts.push(card._id);
+
+                                    // looks up the song data so we can show the users the title and artist
+                                    // ... for some reason the API calls Beginner "Basic" so we do a transformation here
+                                    let songRef = songs.data.find((s) => s._id === card.song_id);
+                                    dMessageText += `\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)} ${card.difficulty})\n`
+                                }
+                                
+                            }
+
+                            dMessageText += `Your first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
+
+                            await sendDiscordMessage(e, dMessageText);
+                            eUpdated = true;
+                        } else {
+                            /*
+                            if (activePeriod.started) {
+                                console.log("Event already started");
+                            } else {
+                                console.log(`Period not started yet - current time: ${currentTime} | start time: ${eStartTime} `);
+                            }
+                            */
                         }
-                        participantBuckets[participantWL].push(p.tag);
-                    }
+                    break;
+                    
+                    case "swiss":
+                        if (!activePeriod.started && currentTime >= eStartTime) {
 
-                    console.log(participantBuckets);
+                            let dMessageText = "";
 
-                    // run card draw for each pool of players
-                    for (let [pool, players] of Object.entries(participantBuckets)) {
+                            // start the event period
+                            activePeriod.started = true;
 
-                        let poolDisplayName = await getPoolName(pool);
+                            console.log(`Starting round ${e.currentPeriod + 1}`);
 
-                        dMessageText += `\n**Pool ${poolDisplayName}** (Players: ${players.join(", ")})`;
-                        let dMessageURLChartIDs = [];
+                            dMessageText += `# ${e.name} - Round ${e.currentPeriod + 1}\n`;
+                            dMessageText += `ends <t:${getUnixTimestamp(activePeriod.end)}>.\nPlay the following charts:\n`;
 
-                        // get the card draw rules that match each pool
-                        for (let draw of e.draws[pool]) {
-                            
-                            console.log(draw);
+                            // categorize participants by their W-L
+                            let participantBuckets = {};
+                            for (let p of e.participants.sort((a, b) => {
+                                return b.wins - a.wins;
+                            })) {
+                                let participantWL = `${p.wins}-${p.losses}`;
+                                if (participantBuckets[participantWL] === undefined) {
+                                    participantBuckets[participantWL] = [];
+                                }
+                                participantBuckets[participantWL].push(p.tag);
+                            }
 
-                            // filter all valid charts down to ones in the specified difficulty and level range.
-                            // also exclude anything we've already drawn (no duplicates)
-                            // also somehow I got removed song charts, so I have to filter those too ...
-                            let cardDraw = charts.data.filter((c) =>                   
-                                draw.difficulty.toLowerCase().includes(c.difficulty_display.replace("+", "").toLowerCase())     // difficulty name matches
-                                && c.difficulty >= draw.lower                                                                   // in bound for difficulty range
-                                && c.difficulty <= draw.upper
-                                && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
-                                && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
-                                && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
-                            );
+                            // console.log(participantBuckets);
 
-                            // this basically shuffles all valid charts in a range
-                            cardDraw = cardDraw.map(v => ({ v, sort: Math.random()}))
-                            cardDraw = cardDraw.sort((a, b) => a.sort - b.sort)
-                            cardDraw = cardDraw.map(({v}) => v)
+                            // run card draw for each pool of players
+                            for (let [pool, players] of Object.entries(participantBuckets)) {
 
-                            // take only what we need from the valid charts
-                            // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
-                            cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
+                                let poolDisplayName = await getPoolName(pool);
 
-                            console.log(cardDraw);
+                                dMessageText += `\n**Pool ${poolDisplayName}** (Players: ${players.join(", ")})`;
+                                let dMessageURLChartIDs = [];
 
-                            // for everything in the draw, incl. it in the post here
-                            for (card of cardDraw) {
+                                // get the card draw rules that match each pool
+                                for (let draw of e.draws[pool]) {
+                                    
+                                    // console.log(draw);
 
-                                console.log(card);
+                                    // filter all valid charts down to ones in the specified difficulty and level range.
+                                    // also exclude anything we've already drawn (no duplicates)
+                                    // also somehow I got removed song charts, so I have to filter those too ...
+                                    let cardDraw = charts.data.filter((c) =>                   
+                                        draw.difficulty.toLowerCase().includes(c.difficulty_display.replace("+", "").toLowerCase())     // difficulty name matches
+                                        && c.difficulty >= draw.lower                                                                   // in bound for difficulty range
+                                        && c.difficulty <= draw.upper
+                                        && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
+                                        && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
+                                        && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
+                                    );
 
-                                if (activePeriod.charts[pool] === undefined) {
-                                    activePeriod.charts[pool] = [];
+                                    // this basically shuffles all valid charts in a range
+                                    cardDraw = cardDraw.map(v => ({ v, sort: Math.random()}))
+                                    cardDraw = cardDraw.sort((a, b) => a.sort - b.sort)
+                                    cardDraw = cardDraw.map(({v}) => v)
+
+                                    // take only what we need from the valid charts
+                                    // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
+                                    cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
+
+                                    // console.log(cardDraw);
+
+                                    // for everything in the draw, incl. it in the post here
+                                    for (card of cardDraw) {
+
+                                        // console.log(card);
+
+                                        if (activePeriod.charts[pool] === undefined) {
+                                            activePeriod.charts[pool] = [];
+                                        }
+
+                                        // push the retrieved chart IDs from the draw into the period's chart list
+                                        activePeriod.charts[pool].push(card);
+
+                                        // also push the chart ID into the exclusion list (so they don't appear multiple times)
+                                        // todo: figure out if it's okay for pools in parallel to have the same charts
+                                        e.excludeCharts.push(card._id);
+
+                                        // push the chart ID to the URL parameter list as well
+                                        dMessageURLChartIDs.push(card._id);
+
+                                        // looks up the song data so we can show the users the title and artist
+                                        // ... for some reason the API calls Beginner "Basic" so we do a transformation here
+                                        let songRef = songs.data.find((s) => s._id === card.song_id);
+                                        dMessageText += `\n\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)} ${card.difficulty})`;
+                                    }
                                 }
 
-                                // push the retrieved chart IDs from the draw into the period's chart list
-                                activePeriod.charts[pool].push(card);
-
-                                // also push the chart ID into the exclusion list (so they don't appear multiple times)
-                                // todo: figure out if it's okay for pools in parallel to have the same charts
-                                e.excludeCharts.push(card._id);
-
-                                // push the chart ID to the URL parameter list as well
-                                dMessageURLChartIDs.push(card._id);
-
-                                // looks up the song data so we can show the users the title and artist
-                                // ... for some reason the API calls Beginner "Basic" so we do a transformation here
-                                let songRef = songs.data.find((s) => s._id === card.song_id);
-                                dMessageText += `\n\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)} ${card.difficulty})`;
+                                dMessageText += `\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)\n`;
                             }
+
+                            dMessageText += `\n\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> will be counted as your submission.`; //\n\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)`;
+
+                            await sendDiscordMessage(e, dMessageText);
+                            eUpdated = true;
+                        } else {
+                            /*
+                            if (activePeriod.started) {
+                                console.log("Event already started");
+                            } else {
+                                console.log(`Period not started yet - current time: ${currentTime} | start time: ${eStartTime} `);
+                            }
+                            */
                         }
+                    break;
 
-                        dMessageText += `\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)\n`;
-                    }
-
-                    dMessageText += `\n\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> will be counted as your submission.`; //\n\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)`;
-
-                    await sendDiscordMessage(e, dMessageText);
-                    eUpdated = true;
-                } else {
-                    /*
-                    if (activePeriod.started) {
-                        console.log("Event already started");
-                    } else {
-                        console.log(`Period not started yet - current time: ${currentTime} | start time: ${eStartTime} `);
-                    }
-                    */
                 }
             }
         }
@@ -393,10 +458,14 @@ client.login(secrets.discordToken).then(async () => {
         }
 
         jobRunning.periodStart = false;
+        } catch (err) {
+            console.log(err);
+        }
     });
 
     // end a period and tabulate results
     cron.schedule(schedules.periodEnd, async() => {
+        try {
         if (jobRunning.periodEnd || jobRunning.gameDataUpdate) {
             return;
         }
@@ -417,255 +486,480 @@ client.login(secrets.discordToken).then(async () => {
                 let eEndTime = getUnixTimestamp(activePeriod.end);
                 let currentTime = getUnixTimestamp(new Date().getTime());
 
-                // only tabulate scores if the event period is over
-                if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
-                    
-                    console.log(`Event period ended; beginning processing loop`);
+                switch (e.format) {
+                    case "swiss":
+                        // only tabulate scores if the event period is over
+                        if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
+                            
+                            console.log(`Event period ended; beginning processing loop`);
 
-                    let currentTime = getUnixTimestamp(new Date());
-                    
-                    // filter out players who have been eliminated (2 losses)
-                    // let validParticipants = e.participants.filter((vP) => vP.losses < e.max_losses);
+                            let currentTime = getUnixTimestamp(new Date());
+                            
+                            // filter out players who have been eliminated (2 losses)
+                            // let validParticipants = e.participants.filter((vP) => vP.losses < e.max_losses);
 
-                    // pull up + categorize participants by their W-L
-                    let participantBuckets = {};
-                    for (let p of e.participants) {
-                        let participantWL = `${p.wins}-${p.losses}`;
-                        if (participantBuckets[participantWL] === undefined) {
-                            participantBuckets[participantWL] = [];
-                        }
-                        participantBuckets[participantWL].push(p.tag);
-                    }
+                            // pull up + categorize participants by their W-L
+                            let participantBuckets = {};
+                            for (let p of e.participants.sort((a, b) => {
+                                return b.wins - a.wins;
+                            })) {
+                                let participantWL = `${p.wins}-${p.losses}`;
+                                if (participantBuckets[participantWL] === undefined) {
+                                    participantBuckets[participantWL] = [];
+                                }
+                                participantBuckets[participantWL].push(p.tag);
+                            }
 
-                    // tabulate results per pool of participants
-                    for (let [pool, players] of Object.entries(participantBuckets)) {
+                            // tabulate results per pool of participants
+                            for (let [pool, players] of Object.entries(participantBuckets)) {
 
-                        let poolDisplayName = await getPoolName(pool);
-                        let roundData = [];
+                                let poolDisplayName = await getPoolName(pool);
+                                let roundData = [];
 
-                        // set up the table to sort players by round end results
-                        for (let p of players) {
-                            let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p);
-                            pRank = (pRank === undefined ? 99999 : pRank.rank);
-                            roundData.push({
-                                player: p,
-                                points: 0,
-                                totalScore: 0,
-                                rank: pRank
-                            });
-                        }
-
-                        console.log(roundData);
-
-                        // go through each chart in the draw
-                        for (let c of activePeriod.charts[pool]) {
-                            console.log(`Reviewing chart ${c._id}`);
-                            var roundChartScores = [];
-
-                            // get each player's score
-                            for (let p of players) {
-
-                                // default values
-                                let pScore = 0;
-                                let pDate = currentTime;
-                                let pScoreId = "N/A";
-                                let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p);
-
-                                // console.log(!invalidated.players.includes(p));
-                                if (pScores.length > 0) { // && !invalidated.players.includes(p)) {
-                                    pScore = pScores[0].score;
-                                    pScoreId = pScores[0]._id.toString();
-                                    pDate = getUnixTimestamp(new Date(pScores[0].created_at));
+                                // set up the table to sort players by round end results
+                                for (let p of players) {
+                                    let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p);
+                                    pRank = (pRank === undefined ? 99999 : pRank.rank);
+                                    roundData.push({
+                                        player: p,
+                                        points: 0,
+                                        totalScore: 0,
+                                        rank: pRank
+                                    });
                                 }
 
-                                console.log(`Player ${p}'s result on ${c._id}: ${pScore} (score ID: ${pScoreId})`);
+                                // console.log(roundData);
 
-                                // push each player's score into the table
-                                roundChartScores.push({
-                                    player: p,
-                                    score: pScore,
-                                    time: pDate,
-                                    points: 0
+                                // go through each chart in the draw
+                                for (let c of activePeriod.charts[pool]) {
+                                    // console.log(`Reviewing chart ${c._id}`);
+                                    var roundChartScores = [];
+
+                                    // get each player's score
+                                    for (let p of players) {
+
+                                        // default values
+                                        let pScore = 0;
+                                        let pDate = currentTime;
+                                        let pScoreId = "N/A";
+                                        let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p);
+
+                                        // console.log(!invalidated.players.includes(p));
+                                        if (pScores.length > 0 && !(invalidated.players.includes(p))) {
+                                            pScore = pScores[0].score;
+                                            pScoreId = pScores[0]._id.toString();
+                                            pDate = getUnixTimestamp(new Date(pScores[0].created_at));
+                                        }
+
+                                        console.log(`Player ${p}'s result on ${c._id}: ${pScore} (score ID: ${pScoreId})`);
+
+                                        // push each player's score into the table
+                                        roundChartScores.push({
+                                            player: p,
+                                            score: pScore,
+                                            time: pDate,
+                                            points: 0
+                                        });
+                                    }
+
+                                    // sort the scores, highest to lowest
+                                    // tiebreak: first submission, then leaderboard rank
+                                    
+                                    let chartLeaderboard = c.difficulty_display.replace('+', '').replace("basic", "beginner");
+                                    roundChartScores.sort((a,b) => {
+                                        if (b.score === a.score) {
+                                            if (b.time === a.time) {
+                                                
+                                                let aRank = leaderboard[chartLeaderboard].find((r) => r.tag === a.player);
+                                                aRank = (aRank === undefined ? 99999 : aRank.rank);
+                                                let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
+                                                bRank = (bRank === undefined ? 99999 : bRank.rank);
+                                                
+                                                return aRank - bRank;
+                                            }
+                                            return a.time - b.time;
+                                        }
+                                        return b.score - a.score;
+                                    });
+
+                                    // award points based on position
+                                    // 9/3/24: if there's a tie, allocate the same points to both players. this moves point values up; going to feel way better on ties
+                                    for (let i = 0, a = 0; i < roundChartScores.length; i++) {
+                                        roundChartScores[i].points += e.prixPoints[Math.min(a++, e.prixPoints.length - 1)];
+                                        if (i < roundChartScores.length - 1 && roundChartScores[i].score === roundChartScores[i + 1].score) {
+                                            a -= 1;
+                                        }
+                                    }
+
+                                    let songRef = songs.data.find((s) => s._id === c.song_id);
+                                    var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty})\n\n`;
+
+                                    // tally up points
+                                    let crIndex = 1;
+                                    for (let roundChartScore of roundChartScores) {
+                                        let pointTotal = roundChartScore.points;
+                                        let scoreTotal = roundChartScore.score;
+
+                                        for (let rdPlayer of roundData) {
+                                            if (rdPlayer.player === roundChartScore.player) {
+                                                rdPlayer.points += pointTotal;
+                                                rdPlayer.totalScore += scoreTotal;
+                                            }
+                                        }
+
+                                        chartResultsString += `#${crIndex}: ${roundChartScore.player} - ${scoreTotal} (+${pointTotal} point${(pointTotal === 1 ? "" : "s")})\n`;
+
+                                        crIndex++;
+                                    }
+
+                                    await sendDiscordMessage(e, chartResultsString);
+                                }
+
+                                // sort on points to determine round winners
+                                // tiebreak: money score, then leaderboard rank
+                                roundData.sort((a, b) => {
+                                    if (b.points == a.points) {
+                                        if (b.totalScore == a.totalScore) {
+                                            return a.rank - b.rank;
+                                        }
+                                        return b.totalScore - a.totalScore;
+                                    }
+                                    return b.points - a.points;
+                                });
+
+                                // console.log(roundData);
+                                
+                                let roundResultsString = `## Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Summary\n\n`;
+                                let rrIndex = 1;
+                                for (let rounds of roundData) {
+
+                                    // distribute points to players
+                                    let pIndex = e.participants.findIndex((e) => {
+                                        return e.tag === rounds.player;
+                                    });
+
+                                    let pRef = e.participants[pIndex];
+                                    pRef.points += rounds.points;
+
+                                    roundResultsString += `#${rrIndex}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (s: ${rounds.totalScore}; r: ${(rounds.rank !== 99999 ? rounds.rank : "N/A")})\n`;
+                                    rrIndex++;
+                                }
+
+                                await sendDiscordMessage(e, roundResultsString);
+
+                                let dMessageText = `# Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Results\n\n`;
+
+                                // top slice: winners
+                                var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
+                                    return a.concat(v.player)
+                                }, []);
+                                var winnersDisplay = winners.map((u) => {
+                                    let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
+                                    if (pRef !== undefined) {
+                                        return `${u} (${pRef.wins + 1} - ${pRef.losses})`;
+                                    }
+                                    return `${u}`;
+                                });
+                                dMessageText += `**Winners:**\n${winnersDisplay.join("\n")}\n`;
+
+                                // bottom slide: losers
+                                var losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
+                                    return a.concat(v.player)
+                                }, []);
+                                var losersDisplay = losers.map((u) => {
+                                    let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
+                                    if (pRef !== undefined) {
+                                        return `${u} (${pRef.wins} - ${pRef.losses + 1})`;
+                                    }
+                                    return `${u}`;
+                                });
+                                dMessageText += `**\nLosers:**\n${losersDisplay.join("\n")}`;
+
+                                // award the winners a victory
+                                for (w of winners) {
+                                    let pIndex = e.participants.findIndex((e) => {
+                                        return e.tag === w;
+                                    });
+                            
+                                    let pRef = e.participants[pIndex];
+                                    if (pRef !== undefined) {
+                                        pRef.wins += 1;
+                                    }
+                                }
+
+                                // award losers a loss
+                                for (l of losers) {
+                                    let pIndex = e.participants.findIndex((e) => {
+                                        return e.tag === l;
+                                    });
+                                    let pRef = e.participants[pIndex];
+                                    if (pRef !== undefined) {
+                                        pRef.losses += 1;
+                                    }
+                                }
+
+                                await sendDiscordMessage(e, dMessageText);
+
+                            }
+                            
+                            // close out the period
+                            activePeriod.completed = true;
+                            eUpdated = true;
+
+                            // console.log(`Leaderboard retrieved (mode: ${e.leaderboard})`);
+
+                            /*
+                            let elimMessageText = `## :warning: Eliminations\n`;
+                            let eliminatedTotal = 0;
+
+                            // hand the losers a loss and note if they have been eliminated
+                            for (l of losers) {
+                                let pIndex = e.participants.findIndex((e) => {
+                                    return e.tag === l;
+                                });
+                                let pRef = e.participants[pIndex];
+                                if (pRef !== undefined) {
+                                    pRef.losses += 1;
+                                    if (pRef.losses >= e.max_losses) {
+                                        eliminatedTotal += 1;
+                                        elimMessageText += `${l} has been eliminated.\n-# Final score: ${pRef.wins} W - ${pRef.losses} L, ${pRef.points} point${(pRef.points === 1 ? "" : "s")}\n`;
+                                    }
+                                }
+                            }
+
+                            if (eliminatedTotal > 0) {
+                                await sendDiscordMessage(e, elimMessageText);
+                            }
+                            */                    
+                        } else {
+                            /*
+                            if (activePeriod.completed) {
+                                console.log("Event already ended");
+                            } else {
+                                console.log(`Period not over yet - current time: ${currentTime} | end time: ${eEndTime} `);
+                            }
+                            */
+                        }
+                    break;
+
+                    case "gauntlet":
+                        // only tabulate scores if the event period is over
+                        if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
+                            
+                            console.log(`Event period ended; beginning processing loop`);
+
+                            let roundData = [];
+                            let currentTime = getUnixTimestamp(new Date());
+                            
+                            // filter out players who have been eliminated (2 losses)
+                            let validParticipants = e.participants.filter((vP) => vP.losses < e.max_losses);
+
+                            // set up the table to sort players by round end results
+                            for (let p of validParticipants) {
+                                let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p.tag);
+                                pRank = (pRank === undefined ? 99999 : pRank.rank);
+                                roundData.push({
+                                    player: p.tag,
+                                    points: 0,
+                                    totalScore: 0,
+                                    rank: pRank
                                 });
                             }
 
-                            // sort the scores, highest to lowest
-                            // tiebreak: first submission, then leaderboard rank
+                            console.log(`Leaderboard retrieved (mode: ${e.leaderboard})`);
+
+                            // go through each chart in the draw
+                            for (let c of activePeriod.charts) {
+                                console.log(`Reviewing chart ${c._id}`);
+                                var roundChartScores = [];
+
+                                // get each player's score
+                                for (let p of validParticipants) {
+
+                                    // default values
+                                    let pScore = 0;
+                                    let pDate = currentTime;
+                                    // let pRank = roundData.find((sD) => sD.player === p.tag).rank;
+
+                                    let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag);
+                                    let pScoreId = "N/A";
+                                    if (pScores.length > 0) {
+                                        pScore = pScores[0].score;
+                                        pScoreId = pScores[0]._id.toString();
+                                        pDate = getUnixTimestamp(new Date(pScores[0].created_at));
+                                    }
+
+                                    console.log(`Player ${p.tag}'s result on ${c._id}: ${pScore} (score ID: ${pScoreId})`);
+
+                                    // push each player's score into the table
+                                    roundChartScores.push({
+                                        player: p.tag,
+                                        score: pScore,
+                                        time: pDate,
+                                        points: 0
+                                    });
+                                }
+
+                                // sort the scores, highest to lowest
+                                // tiebreak: first submission, then leaderboard rank
+                                
+                                let chartLeaderboard = c.difficulty_display.replace('+', '').replace("basic", "beginner");
+                                roundChartScores.sort((a,b) => {
+                                    if (b.score === a.score) {
+                                        if (b.time === a.time) {
+                                            
+                                            let aRank = leaderboard[chartLeaderboard].find((r) => r.tag === a.player);
+                                            aRank = (aRank === undefined ? 99999 : aRank.rank);
+                                            let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
+                                            bRank = (bRank === undefined ? 99999 : bRank.rank);
+                                            
+                                            return aRank - bRank;
+                                        }
+                                        return a.time - b.time;
+                                    }
+                                    return b.score - a.score;
+                                });
+
+                                // award points based on position
+                                // 9/3/24: if there's a tie, allocate the same points to both players. this moves point values up; going to feel way better on ties
+                                for (let i = 0, a = 0; i < roundChartScores.length; i++) {
+                                    roundChartScores[i].points += e.prixPoints[Math.min(a++, e.prixPoints.length - 1)];
+                                    if (i < roundChartScores.length - 1 && roundChartScores[i].score === roundChartScores[i + 1].score) {
+                                        a -= 1;
+                                    }
+                                }
+
+                                let songRef = songs.data.find((s) => s._id === c.song_id);
+                                var chartResultsString = `### ${e.name} - Round ${e.currentPeriod + 1} Chart Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty})\n\n`;
+
+                                // tally up points
+                                let index = 1;
+                                for (let roundChartScore of roundChartScores) {
+                                    let pointTotal = roundChartScore.points;
+                                    let scoreTotal = roundChartScore.score;
+
+                                    for (rdPlayer of roundData) {
+                                        if (rdPlayer.player === roundChartScore.player) {
+                                            rdPlayer.points += pointTotal;
+                                            rdPlayer.totalScore += scoreTotal;
+                                        }
+                                    }
+
+                                    chartResultsString += `#${index}: ${roundChartScore.player} - ${scoreTotal} (+${pointTotal} point${(pointTotal === 1 ? "" : "s")})\n`;
+
+                                    index++;
+                                }
+
+                                await sendDiscordMessage(e, chartResultsString);
+                            }
                             
-                            let chartLeaderboard = c.difficulty_display.replace('+', '').replace("basic", "beginner");
-                            roundChartScores.sort((a,b) => {
-                                if (b.score === a.score) {
-                                    if (b.time === a.time) {
-                                        
-                                        let aRank = leaderboard[chartLeaderboard].find((r) => r.tag === a.player);
-                                        aRank = (aRank === undefined ? 99999 : aRank.rank);
-                                        let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
-                                        bRank = (bRank === undefined ? 99999 : bRank.rank);
-                                        
-                                        return aRank - bRank;
+                            // sort on points to determine round winners
+                            // tiebreak: money score, then leaderboard rank
+                            roundData.sort((a, b) => {
+                                if (b.points == a.points) {
+                                    if (b.totalScore == a.totalScore) {
+                                        return a.rank - b.rank;
                                     }
-                                    return a.time - b.time;
+                                    return b.totalScore - a.totalScore;
                                 }
-                                return b.score - a.score;
+                                return b.points - a.points;
                             });
+                            
+                            let roundResultsString = `## ${e.name} - Round ${e.currentPeriod + 1} Summary\n\n`;
+                            let index = 1;
+                            for (let rounds of roundData) {
 
-                            // award points based on position
-                            // 9/3/24: if there's a tie, allocate the same points to both players. this moves point values up; going to feel way better on ties
-                            for (let i = 0, a = 0; i < roundChartScores.length; i++) {
-                                roundChartScores[i].points += e.prixPoints[Math.min(a++, e.prixPoints.length - 1)];
-                                if (i < roundChartScores.length - 1 && roundChartScores[i].score === roundChartScores[i + 1].score) {
-                                    a -= 1;
-                                }
+                                // distribute points to players
+                                let pIndex = e.participants.findIndex((e) => {
+                                    return e.tag === rounds.player;
+                                });
+
+                                let pRef = e.participants[pIndex];
+                                pRef.points += rounds.points;
+
+                                roundResultsString += `#${index}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (s: ${rounds.totalScore}; r: ${(rounds.rank !== 99999 ? rounds.rank : "N/A")})\n`;
+                                index++;
                             }
 
-                            let songRef = songs.data.find((s) => s._id === c.song_id);
-                            var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty})\n\n`;
+                            await sendDiscordMessage(e, roundResultsString);
 
-                            // tally up points
-                            let crIndex = 1;
-                            for (let roundChartScore of roundChartScores) {
-                                let pointTotal = roundChartScore.points;
-                                let scoreTotal = roundChartScore.score;
+                            let dMessageText = `# ${e.name} - Round ${e.currentPeriod + 1} Results\n\n`;
 
-                                for (let rdPlayer of roundData) {
-                                    if (rdPlayer.player === roundChartScore.player) {
-                                        rdPlayer.points += pointTotal;
-                                        rdPlayer.totalScore += scoreTotal;
-                                    }
+                            // top slice: winners
+                            var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
+                                return a.concat(v.player)
+                            }, []);
+                            var winnersDisplay = winners.map((u) => {
+                                let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
+                                if (pRef !== undefined) {
+                                    return `${u} (${pRef.wins + 1} - ${pRef.losses})`;
                                 }
+                                return `${u}`;
+                            });
+                            dMessageText += `**Winners:**\n${winnersDisplay.join("\n")}\n`;
 
-                                chartResultsString += `#${crIndex}: ${roundChartScore.player} - ${scoreTotal} (+${pointTotal} point${(pointTotal === 1 ? "" : "s")})\n`;
-
-                                crIndex++;
-                            }
-
-                            await sendDiscordMessage(e, chartResultsString);
-                        }
-
-                        // sort on points to determine round winners
-                        // tiebreak: money score, then leaderboard rank
-                        roundData.sort((a, b) => {
-                            if (b.points == a.points) {
-                                if (b.totalScore == a.totalScore) {
-                                    return a.rank - b.rank;
+                            // bottom slide: losers
+                            var losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
+                                return a.concat(v.player)
+                            }, []);
+                            var losersDisplay = losers.map((u) => {
+                                let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
+                                if (pRef !== undefined) {
+                                    return `${u} (${pRef.wins} - ${pRef.losses + 1})`;
                                 }
-                                return b.totalScore - a.totalScore;
-                            }
-                            return b.points - a.points;
-                        });
+                                return `${u}`;
+                            });
+                            dMessageText += `**\nLosers:**\n${losersDisplay.join("\n")}`;
 
-                        console.log(roundData);
+                            // award the winners a victory
+                            for (w of winners) {
+                                let pIndex = e.participants.findIndex((e) => {
+                                    return e.tag === w;
+                                });
                         
-                        let roundResultsString = `## Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Summary\n\n`;
-                        let rrIndex = 1;
-                        for (let rounds of roundData) {
+                                let pRef = e.participants[pIndex];
+                                if (pRef !== undefined) {
+                                    pRef.wins += 1;
+                                }
+                            }
 
-                            // distribute points to players
-                            let pIndex = e.participants.findIndex((e) => {
-                                return e.tag === rounds.player;
-                            });
+                            await sendDiscordMessage(e, dMessageText);
+                        
+                            let elimMessageText = `## :warning: Eliminations\n`;
+                            let eliminatedTotal = 0;
 
-                            let pRef = e.participants[pIndex];
-                            pRef.points += rounds.points;
+                            // hand the losers a loss and note if they have been eliminated
+                            for (l of losers) {
+                                let pIndex = e.participants.findIndex((e) => {
+                                    return e.tag === l;
+                                });
+                                let pRef = e.participants[pIndex];
+                                if (pRef !== undefined) {
+                                    pRef.losses += 1;
+                                    if (pRef.losses >= e.max_losses) {
+                                        eliminatedTotal += 1;
+                                        elimMessageText += `${l} has been eliminated.\n-# Final score: ${pRef.wins} W - ${pRef.losses} L, ${pRef.points} point${(pRef.points === 1 ? "" : "s")}\n`;
+                                    }
+                                }
+                            }
 
-                            roundResultsString += `#${rrIndex}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (s: ${rounds.totalScore}; r: ${(rounds.rank !== 99999 ? rounds.rank : "N/A")})\n`;
-                            rrIndex++;
+                            if (eliminatedTotal > 0) {
+                                await sendDiscordMessage(e, elimMessageText);
+                            }
+                        
+                            // close out the week
+                            activePeriod.completed = true;
+                            eUpdated = true;
+                        } else {
+                            /*
+                            if (activePeriod.completed) {
+                                console.log("Event already ended");
+                            } else {
+                                console.log(`Period not over yet - current time: ${currentTime} | end time: ${eEndTime} `);
+                            }
+                            */
                         }
-
-                        await sendDiscordMessage(e, roundResultsString);
-
-                        let dMessageText = `# Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Results\n\n`;
-
-                        // top slice: winners
-                        var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
-                            return a.concat(v.player)
-                        }, []);
-                        var winnersDisplay = winners.map((u) => {
-                            let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
-                            if (pRef !== undefined) {
-                                return `${u} (${pRef.wins + 1} - ${pRef.losses})`;
-                            }
-                            return `${u}`;
-                        });
-                        dMessageText += `**Winners:**\n${winnersDisplay.join("\n")}\n`;
-
-                        // bottom slide: losers
-                        var losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
-                            return a.concat(v.player)
-                        }, []);
-                        var losersDisplay = losers.map((u) => {
-                            let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
-                            if (pRef !== undefined) {
-                                return `${u} (${pRef.wins} - ${pRef.losses + 1})`;
-                            }
-                            return `${u}`;
-                        });
-                        dMessageText += `**\nLosers:**\n${losersDisplay.join("\n")}`;
-
-                        // award the winners a victory
-                        for (w of winners) {
-                            let pIndex = e.participants.findIndex((e) => {
-                                return e.tag === w;
-                            });
-                    
-                            let pRef = e.participants[pIndex];
-                            if (pRef !== undefined) {
-                                pRef.wins += 1;
-                            }
-                        }
-
-                        // award losers a loss
-                        for (l of losers) {
-                            let pIndex = e.participants.findIndex((e) => {
-                                return e.tag === l;
-                            });
-                            let pRef = e.participants[pIndex];
-                            if (pRef !== undefined) {
-                                pRef.losses += 1;
-                            }
-                        }
-
-                        await sendDiscordMessage(e, dMessageText);
-
-                    }
-                    
-                    // close out the period
-                    activePeriod.completed = true;
-                    eUpdated = true;
-
-                    // console.log(`Leaderboard retrieved (mode: ${e.leaderboard})`);
-
-                    /*
-                    let elimMessageText = `## :warning: Eliminations\n`;
-                    let eliminatedTotal = 0;
-
-                    // hand the losers a loss and note if they have been eliminated
-                    for (l of losers) {
-                        let pIndex = e.participants.findIndex((e) => {
-                            return e.tag === l;
-                        });
-                        let pRef = e.participants[pIndex];
-                        if (pRef !== undefined) {
-                            pRef.losses += 1;
-                            if (pRef.losses >= e.max_losses) {
-                                eliminatedTotal += 1;
-                                elimMessageText += `${l} has been eliminated.\n-# Final score: ${pRef.wins} W - ${pRef.losses} L, ${pRef.points} point${(pRef.points === 1 ? "" : "s")}\n`;
-                            }
-                        }
-                    }
-
-                    if (eliminatedTotal > 0) {
-                        await sendDiscordMessage(e, elimMessageText);
-                    }
-                    */                    
-                } else {
-                    /*
-                    if (activePeriod.completed) {
-                        console.log("Event already ended");
-                    } else {
-                        console.log(`Period not over yet - current time: ${currentTime} | end time: ${eEndTime} `);
-                    }
-                    */
+                    break;
                 }
             }
         }
@@ -676,10 +970,15 @@ client.login(secrets.discordToken).then(async () => {
         }
 
         jobRunning.periodEnd = false;
-    });
+    } catch (err) {
+        console.log(err);
+    }
+    }
+);
 
     // begin a new event period
     cron.schedule(schedules.eventAdvance, async() => {
+        try {
         if (jobRunning.eventAdvance || jobRunning.gameDataUpdate) {
             return;
         }
@@ -691,81 +990,128 @@ client.login(secrets.discordToken).then(async () => {
 
         for (let e of events) {
             if (e.started && !e.completed) {
-
-                // check that our active event period is resolved;
-                // both flags set indicates scoring has been done
+                
                 let activePeriod = e.periods[e.currentPeriod];
-                if (activePeriod.started && activePeriod.completed) {
+                
+                switch (e.format) {
+                    case "swiss": 
 
-                    // if we just finished the last period
-                    if (e.currentPeriod === e.periods.length - 1) {
-
-                        // sort players by performance
-                        e.participants.sort((a,b) => {
-                            if (b.wins === a.wins) {
-                                if (a.losses === b.losses) {
-                                    return b.points - a.points;
-                                }
-                                return a.losses - b.losses;
-                            }
-                            return b.wins - a.wins;
-                        });
-
-                        await sendDiscordMessage(e, `# :trophy: Congratulations ${e.participants[0].tag}!\n**${e.participants[0].tag}** is the winner of ${e.name}!`);
-
-                        let fullResultsMessageText = `## Full Results\n`;
-                        let index = 1;
-                        for (let player of e.participants) {
-                            fullResultsMessageText += `#${index}: ${player.tag}\n-# ${player.wins} W - ${player.losses} L, ${player.points} point${(player.points === 1 ? "" : "s")}\n`;
-                            index += 1;
-                        }
-
-                        await sendDiscordMessage(e, fullResultsMessageText);
-
-                        e.completed = true;
-
-                    } else {
-                        e.currentPeriod += 1;
-                    }
-
-                    eUpdated = true;
-
-                    // award the win if down to a single player,
-                    // otherwise advance to the next round
-                    /*
-                    let remainingPlayers = e.participants.filter((rP) => rP.losses < e.max_losses);
-                    if (remainingPlayers.length == 1) {
-                        await sendDiscordMessage(e, `# :trophy: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+                        // check that our active event period is resolved;
+                        // both flags set indicates scoring has been done
                         
-                        // show full results
-                        e.participants.sort((a,b) => {
-                            if (b.wins === a.wins) {
-                                if (a.losses === b.losses) {
-                                    return b.points - a.points;
+                        if (activePeriod.started && activePeriod.completed) {
+
+                            // if we just finished the last period
+                            if (e.currentPeriod === e.periods.length - 1) {
+
+                                // sort players by performance
+                                e.participants.sort((a,b) => {
+                                    if (b.wins === a.wins) {
+                                        if (a.losses === b.losses) {
+                                            return b.points - a.points;
+                                        }
+                                        return a.losses - b.losses;
+                                    }
+                                    return b.wins - a.wins;
+                                });
+
+                                await sendDiscordMessage(e, `# :trophy: Congratulations ${e.participants[0].tag}!\n**${e.participants[0].tag}** is the winner of ${e.name}!`);
+
+                                let fullResultsMessageText = `## Full Results\n`;
+                                let index = 1;
+                                for (let player of e.participants) {
+                                    fullResultsMessageText += `#${index}: ${player.tag}\n-# ${player.wins} W - ${player.losses} L, ${player.points} point${(player.points === 1 ? "" : "s")}\n`;
+                                    index += 1;
                                 }
-                                return a.losses - b.losses;
+
+                                await sendDiscordMessage(e, fullResultsMessageText);
+
+                                e.completed = true;
+
+                            } else {
+                                e.currentPeriod += 1;
                             }
-                            return b.wins - a.wins;
-                        });
 
-                        let fullResultsMessageText = `## Full Results\n`;
-                        let index = 1;
-                        for (let player of e.participants) {
-                            fullResultsMessageText += `#${index}: ${player.tag}\n-# ${player.wins} W - ${player.losses} L, ${player.points} point${(player.points === 1 ? "" : "s")}\n`;
+                            eUpdated = true;
 
-                            index += 1;
+                            // award the win if down to a single player,
+                            // otherwise advance to the next round
+                            /*
+                            let remainingPlayers = e.participants.filter((rP) => rP.losses < e.max_losses);
+                            if (remainingPlayers.length == 1) {
+                                await sendDiscordMessage(e, `# :trophy: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+                                
+                                // show full results
+                                e.participants.sort((a,b) => {
+                                    if (b.wins === a.wins) {
+                                        if (a.losses === b.losses) {
+                                            return b.points - a.points;
+                                        }
+                                        return a.losses - b.losses;
+                                    }
+                                    return b.wins - a.wins;
+                                });
+
+                                let fullResultsMessageText = `## Full Results\n`;
+                                let index = 1;
+                                for (let player of e.participants) {
+                                    fullResultsMessageText += `#${index}: ${player.tag}\n-# ${player.wins} W - ${player.losses} L, ${player.points} point${(player.points === 1 ? "" : "s")}\n`;
+
+                                    index += 1;
+                                }
+
+                                await sendDiscordMessage(e, fullResultsMessageText);
+
+                                e.completed = true;
+
+                            } else {
+                                e.currentPeriod += 1;
+                            }
+
+                            eUpdated = true;
+                            */
                         }
+                    break;
+                
+                    case "gauntlet":
+                        if (activePeriod.started && activePeriod.completed) {
 
-                        await sendDiscordMessage(e, fullResultsMessageText);
-
-                        e.completed = true;
-
-                    } else {
-                        e.currentPeriod += 1;
-                    }
-
-                    eUpdated = true;
-                    */
+                            // award the win if down to a single player,
+                            // otherwise advance to the next round
+                            let remainingPlayers = e.participants.filter((rP) => rP.losses < e.max_losses);
+                            if (remainingPlayers.length == 1) {
+                                await sendDiscordMessage(e, `# :trophy: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+                                
+                                // show full results
+                                e.participants.sort((a,b) => {
+                                    if (b.wins === a.wins) {
+                                        if (a.losses === b.losses) {
+                                            return b.points - a.points;
+                                        }
+                                        return a.losses - b.losses;
+                                    }
+                                    return b.wins - a.wins;
+                                });
+        
+                                let fullResultsMessageText = `## Full Results\n`;
+                                let index = 1;
+                                for (let player of e.participants) {
+                                    fullResultsMessageText += `#${index}: ${player.tag}\n-# ${player.wins} W - ${player.losses} L, ${player.points} point${(player.points === 1 ? "" : "s")}\n`;
+        
+                                    index += 1;
+                                }
+        
+                                await sendDiscordMessage(e, fullResultsMessageText);
+        
+                                e.completed = true;
+        
+                            } else {
+                                e.currentPeriod += 1;
+                            }
+        
+                            eUpdated = true;
+                        }
+                    break;
                 }
             }
         }
@@ -793,6 +1139,9 @@ client.login(secrets.discordToken).then(async () => {
         }
 
         jobRunning.eventAdvance = false;
+        } catch (err) {
+            console.log(err);
+        }
     });
 
     // daily: run the import mechanism
@@ -829,16 +1178,16 @@ client.login(secrets.discordToken).then(async () => {
 
                 // apply rerates not reflected in the official data
                 // 11/4/24: no longer the case; commented out in case it's needed again
-                /*
-                for (let chart in officials) {
+                
+                /* for (let chart in officials) {
                     if (rerates[officials[chart]._id] !== undefined) {
                         if (rerates[officials[chart]._id].app === officials[chart].difficulty) {
                             officials[chart].difficulty = rerates[officials[chart]._id].game;
                             console.log(`Rerate applied to chart ID ${officials[chart]._id}`);
                         }
                     }
-                }
-                */
+                } */
+            
             // write to file
             fs.writeFileSync("./data/chart-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(officials, null, 4)}\n\n}`, 'utf-8');
             console.log("Done (officials)");
