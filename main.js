@@ -80,7 +80,7 @@ function getUnixTimestamp(dateString) {
 
 // loads event data from text file
 async function loadEventData() {
-    let eDataString = fs.readFileSync("./save/events.txt", "utf8");
+    let eDataString = fs.readFileSync("./save/events.json", "utf8");
     if (eDataString === undefined || eDataString === "") {
         return [];
     } else {
@@ -90,7 +90,7 @@ async function loadEventData() {
 
 // loads invalidated scores/players/etc. from text file
 async function loadInvalidationData() {
-    let iDataString = fs.readFileSync("./save/invalidated.txt", "utf8");
+    let iDataString = fs.readFileSync("./save/invalidated.json", "utf8");
     console.log(`Invalidation data: ${iDataString}`);
     if (iDataString === undefined || iDataString === "") {
         return {
@@ -105,7 +105,7 @@ async function loadInvalidationData() {
 // writes event data to text file
 async function writeEventData() {
     var eDataString = JSON.stringify(events, null, 4);
-    fs.writeFile("./save/events.txt", eDataString, (err) => {
+    fs.writeFile("./save/events.json", eDataString, (err) => {
         if (err) {
             console.log("An error occurred when writing event data to file.");
             return console.log(err);
@@ -116,7 +116,7 @@ async function writeEventData() {
 // writes invalidation data to text file
 async function writeInvalidationData() {
     var iDataString = JSON.stringify(invalidated, null, 4);
-    fs.writeFile("./save/invalidated.txt", iDataString, (err) => {
+    fs.writeFile("./save/invalidated.json", iDataString, (err) => {
         if (err) {
             console.log("An error occurred when writing invalidation data to file.");
             return console.log(err);
@@ -151,6 +151,25 @@ async function importEventData() {
     }
 }
 
+async function updateWebUIDirectory() {
+    let directory = [];
+
+    fs.readdir("./save/finished", (err, files) => {
+        files.forEach(file => {
+            directory.push(`finished/${file}`);
+        });
+
+        if (directory.length > 0) {
+            fs.writeFileSync("./save/directory.json", JSON.stringify(directory, null, 4), (err) => {
+                if (err) {
+                    console.log("An error occurred writing the webUI directory to file.");
+                    return err;
+                }
+            });
+        }
+    });    
+}
+
 // calculates dance point / leaderboard point value of a score
 function calculateLeaderboardScore(score, diff) {
     return Math.floor((score * diff * diff) / 1000);
@@ -168,20 +187,19 @@ async function capitalize(text) {
 }
 
 // convert a W/L to a more interpretable pool name
+// (round: sum of W/L + 1; pool: round minus wins -> letter of alphabet)
+// thanks Invis!
 async function getPoolName(str) {
-    switch (str) {
-        case "0-0": return "1A";
-        case "1-0": return "2A";
-        case "0-1": return "2B";
-        case "2-0": return "3A";
-        case "1-1": return "3B";
-        case "0-2": return "3C";
-        case "3-0": return "4A";
-        case "2-1": return "4B";
-        case "1-2": return "4C";
-        case "0-3": return "4D";
-        default:    return str;
+    let wl = str.split('-');
+    if (wl.length != 2) {
+        return "??";
     }
+
+    let [w, l] = wl;
+    let r = (+w + +l) + 1;
+    let p = String.fromCharCode(64 + (r - +w));
+
+    return r + p;
 }
 
 // all cron schedules in one place for modifying.
@@ -213,6 +231,7 @@ client.login(secrets.discordToken).then(async () => {
     events = await loadEventData();
     await importEventData();
     invalidated = await loadInvalidationData();
+    await updateWebUIDirectory();
 
     console.log("Ready");
 
@@ -366,7 +385,7 @@ client.login(secrets.discordToken).then(async () => {
                                 participantBuckets[participantWL].push(p.tag);
                             }
 
-                            // console.log(participantBuckets);
+                            activePeriod.participants = participantBuckets;
 
                             // run card draw for each pool of players
                             for (let [pool, players] of Object.entries(participantBuckets)) {
@@ -433,7 +452,7 @@ client.login(secrets.discordToken).then(async () => {
                                 dMessageText += `\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)\n`;
                             }
 
-                            dMessageText += `\n\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> will be counted as your submission.`; //\n\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)`;
+                            dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> will be counted as your submission.`; //\n\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)`;
 
                             await sendDiscordMessage(e, dMessageText);
                             eUpdated = true;
@@ -939,6 +958,7 @@ client.login(secrets.discordToken).then(async () => {
                                     if (pRef.losses >= e.max_losses) {
                                         eliminatedTotal += 1;
                                         elimMessageText += `${l} has been eliminated.\n-# Final score: ${pRef.wins} W - ${pRef.losses} L, ${pRef.points} point${(pRef.points === 1 ? "" : "s")}\n`;
+                                        pRef.eliminated = e.currentPeriod;
                                     }
                                 }
                             }
@@ -1124,7 +1144,7 @@ client.login(secrets.discordToken).then(async () => {
                 // write event data to a file for postmortem review
                 let timestamp = Math.floor(((new Date()).getTime() / 1000).toString());
                 try {
-                    fs.writeFileSync(`./events/finished/${events[i].discordChannel}_${timestamp}.json`, JSON.stringify(events[i], null, 4), "utf-8");
+                    fs.writeFileSync(`./save/finished/${events[i].discordChannel}_${timestamp}.json`, JSON.stringify(events[i], null, 4), "utf-8");
                     events.splice(i, 1);
                     eUpdated = true;
                 } catch (e) {
@@ -1136,6 +1156,7 @@ client.login(secrets.discordToken).then(async () => {
         if (eUpdated) {
             await writeEventData();
             await writeInvalidationData();
+            await updateWebUIDirectory();
         }
 
         jobRunning.eventAdvance = false;
@@ -1244,6 +1265,9 @@ client.login(secrets.discordToken).then(async () => {
             let mTime = s.mtime;
             sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Leaderboard data reloaded (local file last modified: ${mTime}).`);
         });
+
+        // update webUI data feeds
+        await updateWebUIDirectory();
 
         jobRunning.updateGameData = false;
 

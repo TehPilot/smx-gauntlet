@@ -10,91 +10,106 @@
             "tag":"ArrowsmithBA3!",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Arual",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Big Matt",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"CTEMI",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"DanDee009",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"HystericPolaris",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Lenni",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"NabiChou",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"NigelNapalm",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Pyrona",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"simx",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"stayflyangel",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Tink",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"werdbutitsnobar",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"ZephyrNoBar",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         }
     ],
     "leaderboard":"hard",

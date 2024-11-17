@@ -10,97 +10,113 @@
             "tag":"Daaanty",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"hintz",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"chezmix",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"watersalads",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"SteveSnowmn",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"JimboSMX",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"emcat",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"JJK.",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Eesa",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"MaestroGee",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Corey",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"SenPi",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"WDrM",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"JellySlosh",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"GDon",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         },
         {
             "tag":"Pilot",
             "wins":0,
             "losses":0,
-            "points":0
+            "points":0,
+            "eliminated":-1,
         }
     ],
     "prixPoints":[10, 8, 7, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1],
