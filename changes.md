@@ -1,3 +1,14 @@
+# 31 March 2025
+- Added branching logic for a Swiss format (while maintaining support for gauntlet format).
+- Switched over to the new score browser API endpoints.
+- Added in downloading + merging in data from the basic song data endpoint provided by StatManiaX (https://statmaniax.com/), which updates with rerates faster than the score browser API does. Song/chart update code now pulls this data and merges in changes.
+- Switched event storage to *.json files instead of *.txt files.
+- Moved event schedules to a separate file (for ease of adjusting during testing).
+- Added `course.js`, an experimental implementation of course mode-style tracking. (It needs a lot more work.)
+- Suppressed the leaderboard update notification (for now). It is noisy and not very useful.
+
+TODO: switch example files to ISO 8061 date format, which is the new standard for the score browser API.
+
 # 3 September 2024
 - Changed the point tabulation routine for individual charts to better address score ties, especially when there are multiple perfect scores for a given chart. Now, tied players will all receive the same amount of points for a chart, rather than placements being determined by submission time or leaderboard rank.
 
