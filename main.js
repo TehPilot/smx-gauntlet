@@ -26,7 +26,7 @@ var invalidated = {
 // parameter asc=1 sorts by date ascending; it is implicitly assumed the first result from this call
 // will be the player's first submitted score in the period
 async function getScore(wStart, wEnd, cId, player) {
-    let requestUrl = `http://smx.573.no/api/scores?from=${wStart}&to=${wEnd}&user=${player}&chart_ids=${cId}&asc=1`;
+    let requestUrl = `https://api.smx.573.no/scores?q={"song_chart_id":${cId},"updated_at":{"gte":"${wStart}","lte":"${wEnd}"},"gamer.username":"${player}","_order":"asc"}`;
     let response = null;
 
     await axios.get(requestUrl).then((res) => {
@@ -168,17 +168,6 @@ async function updateWebUIDirectory() {
             });
         }
     });    
-}
-
-// calculates dance point / leaderboard point value of a score
-function calculateLeaderboardScore(score, diff) {
-    return Math.floor((score * diff * diff) / 1000);
-}
-
-// calculates max rounds (approx.) for an event
-function getMaxRounds(players) {
-    let w = Math.ceil(Math.log2(players));
-    return w + Math.ceil(Math.log2(w)) + 1;
 }
 
 // capitalize (lol)
@@ -529,6 +518,11 @@ client.login(secrets.discordToken).then(async () => {
                                 participantBuckets[participantWL].push(p.tag);
                             }
 
+                            // 12/1/24: initialize a "results" container if one does not exist yet
+                            if (activePeriod.results === undefined) {
+                                activePeriod.results = {};
+                            }
+
                             // tabulate results per pool of participants
                             for (let [pool, players] of Object.entries(participantBuckets)) {
 
@@ -616,6 +610,18 @@ client.login(secrets.discordToken).then(async () => {
                                     // tally up points
                                     let crIndex = 1;
                                     for (let roundChartScore of roundChartScores) {
+
+                                        // 12/1/24: push the results into the data file as well
+                                        if (activePeriod.results[roundChartScore.player] === undefined) {
+                                            activePeriod.results[roundChartScore.player] = [];
+                                        }
+                                        
+                                        activePeriod.results[roundChartScore.player].push({
+                                            chart: c._id,
+                                            score: roundChartScore.score,
+                                            points: roundChartScore.points
+                                        });
+
                                         let pointTotal = roundChartScore.points;
                                         let scoreTotal = roundChartScore.score;
 
@@ -1139,12 +1145,16 @@ client.login(secrets.discordToken).then(async () => {
         // remove events from the save data if they've been completed.
         // imperative to walk the array backwards to not screw up indices
         for (let i = events.length - 1; i >= 0; i--) {
-            if (events[i].completed) {
 
+            // 12/16/24: only close out an event formally if it's been completed for over a week
+            let timestamp = Math.floor(((new Date()).getTime() / 1000));
+            console.log(events[i].periods[events[i].currentPeriod].end);
+            let eventEnd = Math.floor(Date.parse(events[i].periods[events[i].currentPeriod].end) / 1000);
+
+            if (events[i].completed && (timestamp - eventEnd > 604800)) {
                 // write event data to a file for postmortem review
-                let timestamp = Math.floor(((new Date()).getTime() / 1000).toString());
                 try {
-                    fs.writeFileSync(`./save/finished/${events[i].discordChannel}_${timestamp}.json`, JSON.stringify(events[i], null, 4), "utf-8");
+                    fs.writeFileSync(`./save/finished/${events[i].discordChannel}_${timestamp.toString()}.json`, JSON.stringify(events[i], null, 4), "utf-8");
                     events.splice(i, 1);
                     eUpdated = true;
                 } catch (e) {
@@ -1182,36 +1192,92 @@ client.login(secrets.discordToken).then(async () => {
         
         jobRunning.updateGameData = true;
 
+        let d = (new Date()).toLocaleDateString("en-ca", { timezone: "UTC"} );
+
         let totalCharts = charts.data.length;
         let totalSongs = songs.data.length;
         console.log(`Total song count: ${totalSongs} // Total chart count: ${totalCharts}`);
 
+        /*
         console.log("Reloading rerate data...");
         delete require.cache[require.resolve("./data/rerates.js")];
         rerates = require("./data/rerates.js");
         console.log("Done");
+        */
 
         console.log("Downloading updated chart data...");
-        await axios.get(`https://api.smx.573.no/charts?params={"is_enabled":%201}`).then((res) => {
-            
-            // officials (is_edit = false, is_enabled = 1)
-            let officials = res.data;    // .filter((c) => (c.is_edit != true && c.is_enabled === 1)); { // 11/4/24: query now handles the filtration
+        let chartData = [];
+        let chartIndex = 0;
+        let chartsFinished = false;
 
-                // apply rerates not reflected in the official data
-                // 11/4/24: no longer the case; commented out in case it's needed again
-                
-                /* for (let chart in officials) {
-                    if (rerates[officials[chart]._id] !== undefined) {
-                        if (rerates[officials[chart]._id].app === officials[chart].difficulty) {
-                            officials[chart].difficulty = rerates[officials[chart]._id].game;
-                            console.log(`Rerate applied to chart ID ${officials[chart]._id}`);
+        while (!chartsFinished) {
+            await axios.get(`https://api.smx.573.no/charts?q={"is_enabled":1,"_skip":${chartIndex}}`, {
+                timeout: 5000
+            }).then((res) => {
+                if (res.status === 200) {
+                    chartIndex += res.data.length;
+                    chartData = chartData.concat(res.data);
+                    if (res.data.length === 0) {
+                        chartsFinished = true;
+                    }
+                } else {
+                    chartsFinished = true;
+                    console.log("An error occurred while downloading chart data.");
+                }
+            });
+        }
+
+        // pull the rating information down from statmaniax
+        let statmxData = {};
+        await axios.get(`https://statmaniax.com/api/get_song_data`, {
+            timeout: 5000
+        }).then((res) =>  {
+            if (res.status === 200) {
+                statmxData = res.data;
+            }
+        });
+
+        // apply any rating differences found from statmaniax
+        for (let stmxSong in statmxData) {
+            for (let stmxChart in statmxData[stmxSong].difficulties) {
+
+                // pull out the chart data to variables for easier reference
+                let stmxChartDiff = statmxData[stmxSong].difficulties[stmxChart].name.replace("+", "2").replace("beginner", "basic");
+                let stmxChartRating = parseInt(statmxData[stmxSong].difficulties[stmxChart].difficulty);
+                let chartRef = chartData.find((c) => (c.song_id.toString() === stmxSong && c.difficulty_name === stmxChartDiff));
+                let chartIndex = -1;
+
+                // if there's a chart that matches the statMX data, get its id
+                if (chartRef !== undefined) {
+                    if (!isNaN(stmxChartRating)) {
+                        if (chartRef.difficulty !== stmxChartRating) {
+                            chartIndex = chartRef._id;
                         }
                     }
-                } */
-            
-            // write to file
-            fs.writeFileSync("./data/chart-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(officials, null, 4)}\n\n}`, 'utf-8');
-            console.log("Done (officials)");
+                } else {
+                    if (stmxChartDiff !== "team") {
+                        // indicates a chart is missing from the data
+                        console.log(`Chart not in score browser API data: ${statmxData[stmxSong].title} (${stmxChartDiff} ${stmxChartRating})`);
+                    }
+                }
+
+                // if we have a chart index (discrepancy), apply the rerate
+                if (chartIndex !== -1) {
+                    for (let c in chartData) {
+                        if (chartData[c]._id === chartIndex) {
+                            chartData[c].difficulty = stmxChartRating;
+                        }
+                    }
+                }
+
+            }
+        }
+                    
+        // write to file
+        if (chartData.length > 0) {
+            fs.writeFileSync("./data/chart-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(chartData, null, 4)}\n\n}`, 'utf-8');
+            fs.writeFileSync(`./data/chart_history/chart-data_${d}.js`, `module.exports = {\n\n\tdata: ${JSON.stringify(chartData, null, 4)}\n\n}`, 'utf-8');
+            console.log("Done");
             //}
         
             // reload the module chart data is stored in
@@ -1224,20 +1290,38 @@ client.login(secrets.discordToken).then(async () => {
                 sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New chart data has been downloaded.`);
                 console.log("Chart data has changed!");
             } else {
-                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Chart data has been refreshed.`);
+                // sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Chart data has been refreshed.`);
                 console.log("Chart data was re-downloaded");
             }
-        });
+        }
 
         console.log("Downloading updated song data...");
-        await axios.get(`https://api.smx.573.no/songs?params={"is_enabled":%201}`).then((res) => {
+        let songData = [];
+        let songIndex = 0;
+        let songsFinished = false;
 
-            // get all songs (is_enabled = true)
-            // 11/4/24: query now handles the filtration
-            let songs = res.data; //.filter((s) => (s.is_enabled)); {
-            fs.writeFileSync("./data/song-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(songs, null, 4)}\n\n}`, 'utf-8');
+        while (!songsFinished) {
+            await axios.get(`https://api.smx.573.no/songs?q={"is_enabled":1,"_skip":${songIndex}}`, {
+                timeout: 5000
+            }).then((res) => {
+                if (res.status === 200) {
+                    songIndex += res.data.length;
+                    songData = songData.concat(res.data);
+                    if (res.data.length === 0) {
+                        songsFinished = true;
+                    }
+                } else {
+                    songsFinished = true;
+                    console.log("An error occurred while downloading song data.");
+                }
+            });
+        }
+
+        if (songData.length > 0) {
+
+            fs.writeFileSync("./data/song-data.js", `module.exports = {\n\n\tdata: ${JSON.stringify(songData, null, 4)}\n\n}`, 'utf-8');
+            fs.writeFileSync(`./data/chart_history/song-data_${d}.js`, `module.exports = {\n\n\tdata: ${JSON.stringify(songData, null, 4)}\n\n}`, 'utf-8');
             console.log("Done (songs)");
-            //}
 
             // reload the module song data is stored in
             delete require.cache[require.resolve("./data/song-data.js")];
@@ -1249,11 +1333,10 @@ client.login(secrets.discordToken).then(async () => {
                 sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: New song data has been downloaded.`);
                 console.log("Song data has changed!");
             } else {
-                sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Song data has been refreshed.`);
+                // sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Song data has been refreshed.`);
                 console.log("Song data was re-downloaded");
             }
-
-        });
+        }
 
         // reload the leaderboard
         console.log("Reloading leaderboard file...");
@@ -1263,7 +1346,7 @@ client.login(secrets.discordToken).then(async () => {
 
         fs.stat("./data/leaderboard.js", function(e, s) {
             let mTime = s.mtime;
-            sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Leaderboard data reloaded (local file last modified: ${mTime}).`);
+            // sendDiscordMessageId(secrets.maintenanceChannelId, `:speech_balloon: Leaderboard data reloaded (local file last modified: ${mTime}).`);
         });
 
         // update webUI data feeds
