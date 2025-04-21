@@ -15,10 +15,83 @@ var charts = require("./data/chart-data.js");
 var songs  = require("./data/song-data.js");
 const secrets = require("./data/secrets.js");
 
-var coursePlayers = ["Pilot", "SenPi"];
+var coursePlayers = [
+    ".NF.",
+    "Adam Martinz",
+    "AFishy03",
+    "Aleree",
+    "Annabanana",
+    "ArrowsmithBA3!",
+    "AsunaSakura",
+    "Bluesteel",
+    "Burner",
+    "Cathadan",
+    "chezmix",
+    "Clasyninja",
+    "comradesnarky",
+    "Corey",
+    "Crufix",
+    "CTEMI",
+    "DanDee009",
+    "DanPeriod",
+    "DarkStarPDX",
+    "DebWeb",
+    "DJPandaga",
+    "Eesa",
+    "emcat",
+    "ExoFensky",
+    "GDon",
+    "Glow",
+    "Goombaroomba",
+    "Grimmnoir",
+    "Hamaon",
+    "hintz",
+    "Invis",
+    "Janus5k",
+    "Jason121able",
+    "JellySlosh",
+    "JJK.",
+    "Jkurs",
+    "Joemamaratchet",
+    "Kanghis",
+    "Katya9700",
+    "LemmingOnTheRun",
+    "Lenni",
+    "Lightning",
+    "Lous",
+    "MaestroGee",
+    "Marli",
+    "MaryCherry",
+    "MasterJack1225",
+    "Mauiku",
+    "MeGoesMoo",
+    "Mesyr",
+    "mxl100",
+    "NabiChou",
+    "NigelNapalm",
+    "Painsley",
+    "Pilot",
+    "Popcorn",
+    "Pyrona",
+    "RC01",
+    "Safari",
+    "ScottToiletPapr",
+    "SenPi",
+    "SnowStorm",
+    "SUFRTHRU",
+    "Telperion",
+    "Thaya",
+    "Tink",
+    "Twans",
+    "ValeskaRose",
+    "watersalads",
+    "werdwerdus",
+    "ZephyrNoBar",
+    "ZOM585"
+];
 var courseData = [];
 
-var updateChannel = "1278586384294088816";
+var updateChannel = "1356117039399436398";
 
 async function getPlayerScores(wStart, wEnd, player, skip = 0) {
     let requestUrl = `https://api.smx.573.no/scores?q={"updated_at":{"gte":"${wStart}","lte":"${wEnd}"},"gamer.username":"${player}","_skip":${skip},"_order":"asc"}`;
@@ -137,9 +210,9 @@ client.login(secrets.discordToken).then(async () => {
                             
                             let runValid = true;
 
-                            // invalidate a course run if there's too much time between songs (>5 min, expressed as 300 seconds)
+                            // invalidate a course run if there's too much time between songs (>10 min, expressed as 600 seconds)
                             if (courseScoreIndex > 0) {
-                                if ((new Date(playerScores[i].created_at) - new Date(playerScores[i - 1]) / 1000) > 240) {
+                                if ((new Date(playerScores[i].created_at) - new Date(playerScores[i - 1]) / 1000) > 600) {
                                     runValid = false;
                                     console.log("RUN INVALID: time between two songs is too long");
                                 }
@@ -154,7 +227,10 @@ client.login(secrets.discordToken).then(async () => {
                             if (runValid) {
                                 console.log(`Played song in course (ID: ${playerScores[i].song._id})`);
                                 courseSongIndex++;
-                                courseScoreTotal += (playerScores[i].score * (playerScores[i].chart.difficulty * playerScores[i].chart.difficulty)) / 1000;
+                                
+                                //courseScoreTotal += (playerScores[i].score * (playerScores[i].chart.difficulty * playerScores[i].chart.difficulty)) / 1000;
+                                courseScoreTotal += (((playerScores[i].score / 100000) * playerScores[i].chart.difficulty) * (10 ** 2)) / (10 ** 2);
+
                                 courseScoreIDs.push(playerScores[i]._id);
 
                                 // if the player failed the chart, terminate the course early

@@ -22,6 +22,9 @@ var invalidated = {
     scores: []
 };
 
+// time (ms) until a song/chart is legal
+const TIME_TO_LEGAL = 1209600;
+
 // get a player's score for a given chart ID.
 // parameter asc=1 sorts by date ascending; it is implicitly assumed the first result from this call
 // will be the player's first submitted score in the period
@@ -171,8 +174,13 @@ async function updateWebUIDirectory() {
 }
 
 // capitalize (lol)
+// now with a horrible hacky workaround for an inconsistency with the API and the game! pog
 async function capitalize(text) {
-    return text.charAt(0).toUpperCase() + text.slice(1);
+    let ret = text.charAt(0).toUpperCase() + text.slice(1);
+    if (ret === "Basic") {
+        ret = "Beginner";
+    }
+    return ret
 }
 
 // convert a W/L to a more interpretable pool name
@@ -306,7 +314,7 @@ client.login(secrets.discordToken).then(async () => {
                                     && c.difficulty <= draw.upper
                                     && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
                                     && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
-                                    && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
+                                    && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - TIME_TO_LEGAL     // is at least 30 days old (at time of draw)
                                 );
 
                                 // this basically shuffles all valid charts in a range
@@ -334,7 +342,7 @@ client.login(secrets.discordToken).then(async () => {
                                 
                             }
 
-                            dMessageText += `Your first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
+                            dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> (server time) will be counted as your submission.`;
 
                             await sendDiscordMessage(e, dMessageText);
                             eUpdated = true;
@@ -398,7 +406,7 @@ client.login(secrets.discordToken).then(async () => {
                                         && c.difficulty <= draw.upper
                                         && c.is_enabled                                                                                 // chart is enabled (doesn't belong to a disabled song)
                                         && !e.excludeCharts.includes(c._id)                                                             // not in the event-wide exclusion list
-                                        && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - 2592000           // is at least 30 days old (at time of draw)
+                                        && getUnixTimestamp(c.created_at) < getUnixTimestamp(new Date().toString()) - TIME_TO_LEGAL     // is at least 30 days old (at time of draw)
                                     );
 
                                     // this basically shuffles all valid charts in a range
@@ -1106,7 +1114,12 @@ client.login(secrets.discordToken).then(async () => {
                             // otherwise advance to the next round
                             let remainingPlayers = e.participants.filter((rP) => rP.losses < e.max_losses);
                             if (remainingPlayers.length == 1) {
-                                await sendDiscordMessage(e, `# :trophy: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+
+                                if (e.name.toLowerCase().includes("silly goose")) {
+                                    await sendDiscordMessage(e, `# :goose: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the silliest goose!`);
+                                } else {
+                                    await sendDiscordMessage(e, `# :trophy: Congratulations ${remainingPlayers[0].tag}!\n**${remainingPlayers[0].tag}** is the winner of ${e.name}!`);
+                                }
                                 
                                 // show full results
                                 e.participants.sort((a,b) => {
