@@ -1,6 +1,6 @@
 # smx-gauntlet 🦵
 
-This is a work-in-progress program which runs a gauntlet-style event. It is intended for remote StepManiaX (SMX) tournaments and uses the score browser API maintained by DesktopMan (https://smx.573.no/) to retrieve scores.
+This is a work-in-progress program which runs remote StepManiaX (SMX) tournaments and uses the score browser API maintained by DesktopMan (https://smx.573.no/) to retrieve scores. It is the primary program that facilitates my remote tournament series, **Fully Automatic Remote Tournament** (or **FART**, for short).
 
 This repository is for the main program file, package definition, and some useful utilities for maintaining the data necessary to run the program. It is here for competitors and interested parties to audit functionality and confirm tournament integrity; it is not a complete package to run your own events with at this time. It is currently dependent on leveraging a Discord bot to output useful information and event updates to competitors.
 
