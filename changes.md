@@ -1,3 +1,18 @@
+# 7 December 2025
+- Support for Edit charts is now implemented.
+  - Events can now include "Edit" as a difficulty in the card draw defintiion, and can use a new parameter `edit_styles` at the event level to indicate which types of edits are desirable: Single, Dual, and Full.
+  - The data update routines now include copying edit data locally, and incorporating it into the chart data which the "card draw" routines pull from.
+  - Edit charts in card draw are limited to edits created two weeks (or longer) prior to the event starting.
+  - `getScore` updated with an optional parameter that toggles the API parameter for requesting edit scores (`chart.is_edit`.)
+  - Edits use the mode that most closely matches their style for per-round tiebreaks: the Wild leaderboard is used for Single style edits, and the Dual and Full leaderboards used for their respective styles.
+  - When an edit chart is referenced in a Discord message from the tournament bot account, the message includes a link to the edit URL (openable by the StepManiaX Link mobile app).
+- Added a new format, `swiss-2`. This is derivative of the existing `swiss` format and will eventually supercede `swiss` entirely.
+  - The outermost pools now only advance a set number of players to the next highest/lowest pool.
+  - Point gain is adjusted downwards the more losses players have in that pool. This is achieved by shifting the points awarded per chart downwards. As an example, the top level pool in a round may have the top performance on a chart award +10 points; the next pool down will instead award +8 points, and so forth, as defined in the event parameter `prixPoints`.
+- Players who do not have a submitted score for a chart receive zero points, instead of the value reserved for last place.
+- Reworked the Discord message function to split a message into chunks smaller than the character limit (2000); it now better preserves formatting.
+- Removal of old commented-out code and adjustments to whitespace.
+
 # 31 March 2025
 - Added branching logic for a Swiss format (while maintaining support for gauntlet format).
 - Switched over to the new score browser API endpoints.
