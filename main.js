@@ -13,6 +13,7 @@ const client = new Client({
 
 var charts = require("./data/chart-data.js");
 var songs  = require("./data/song-data.js");
+var mods = require("./data/mods.js");
 var leaderboard = require("./data/leaderboard.js");
 const secrets = require("./data/secrets.js");
 
@@ -30,9 +31,11 @@ const TIME_TO_LEGAL = 1209600;
 // get a player's score for a given chart ID.
 // parameter asc=1 sorts by date ascending; it is implicitly assumed the first result from this call
 // will be the player's first submitted score in the period
-async function getScore(wStart, wEnd, cId, player, isEdit=0) {
-    let requestUrl = `https://api.smx.573.no/scores?q={"song_chart_id":${cId},"updated_at":{"gte":"${wStart}","lte":"${wEnd}"},"gamer.username":"${player}","_order":"asc"${(isEdit ? `,"chart.is_edit":true` : "")}}`;
+async function getScore(wStart, wEnd, cId, player, isEdit=0, mods="") {
+    let requestUrl = `https://api.smx.573.no/scores?q={"song_chart_id":${cId},"updated_at":{"gte":"${wStart}","lte":"${wEnd}"},"gamer.username":"${player}","_order":"asc"${(isEdit ? `,"chart.is_edit":true` : "")}${mods.length > 0 ? mods : ""}}`;
     let response = null;
+
+    console.log(requestUrl);
 
     await axios.get(requestUrl).then((res) => {
         response = res.data.filter((s) => !(invalidated.scores.includes(s._id)));
@@ -356,6 +359,11 @@ client.login(secrets.discordToken).then(async () => {
                                         );
                                     }
 
+                                    // 2/28/26: filter edits by _qc_passed flag as well
+                                    cardDraw = cardDraw.filter((c) => 
+                                        !c.is_edit || (c.is_edit && c._qc_passed === true)
+                                    );
+
                                     // this basically shuffles all valid charts in a range
                                     cardDraw = cardDraw.map(v => ({ v, sort: Math.random()}))
                                     cardDraw = cardDraw.sort((a, b) => a.sort - b.sort)
@@ -364,6 +372,11 @@ client.login(secrets.discordToken).then(async () => {
                                     // take only what we need from the valid charts
                                     // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
                                     cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
+
+                                    // 3/1/26: sort the draw by difficulty ascending
+                                    cardDraw.sort((a, b) => {
+                                        return a.difficulty - b.difficulty;
+                                    });
 
                                     // for everything in the draw, incl. it in the post here
                                     for (card of cardDraw) {
@@ -380,6 +393,49 @@ client.login(secrets.discordToken).then(async () => {
                                         // ... for some reason the API calls Beginner "Basic" so we do a transformation here
                                         let songRef = songs.data.find((s) => s._id === card.song_id);
                                         dMessageText += `\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)}${(card.difficulty_display === "edit" ? ` ${card.difficulty} [**${card.edit_display_id}**](<https://edits.stepmaniax.com/${card.edit_display_id}>) by ${card.edit_author}` : ` ${card.difficulty}`)})\n`
+
+                                        // modifiers setup (if applicable for the event)
+                                        if (e.mods !== undefined) {
+                                            let modsAppliedToCard = [];
+                                            let modsRemaining = e.max_mods;
+
+                                            // 12/19/25: shuffle the mods list before each card draw to keep things interesting
+                                            let modsShuffled = e.mods;
+                                            let ci = modsShuffled.length;
+
+                                            while (ci != 0) {
+                                                let si = Math.floor(Math.random() * ci);
+                                                ci--;
+                                                [modsShuffled[ci], modsShuffled[si]] = [modsShuffled[si], modsShuffled[ci]];
+                                            }
+
+                                            // roll for mods
+                                            for (var mod of modsShuffled) {
+
+                                                // roll for random chance on each 
+                                                let modsDiceRoll = Math.random();
+                                                if (modsDiceRoll < mod[1]
+                                                    && modsRemaining > 0
+                                                    && !modsAppliedToCard.includes(mod[0])
+                                                    && modsAppliedToCard.filter((m) => m.class === mod[2]).length === 0) {
+
+                                                    // get the mod ID and add it to the list of applied mods
+                                                    let chosenMod = mods.data[mod[0]];
+
+                                                    // apply the "class" of the mod defined in the event - this prevents mods of the same class from being grouped together
+                                                    chosenMod.class = mod[2];
+
+                                                    modsAppliedToCard.push(chosenMod);
+                                                    modsRemaining -= 1;
+                                                    
+                                                    dMessageText += `\> + ${chosenMod.name}\n`;
+                                                }
+
+                                            }
+
+                                            // apply selected mods to the card object
+                                            card._mods_applied = modsAppliedToCard;
+                                        }
                                     }
                                 }
 
@@ -391,7 +447,7 @@ client.login(secrets.discordToken).then(async () => {
                             }
                             break;
                         
-                        case "swiss", "swiss-2":
+                        case "swiss":
                             if (!activePeriod.started && currentTime >= eStartTime) {
 
                                 let dMessageText = "";
@@ -402,7 +458,7 @@ client.login(secrets.discordToken).then(async () => {
                                 console.log(`Starting round ${e.currentPeriod + 1}`);
 
                                 dMessageText += `# ${e.name} - Round ${e.currentPeriod + 1}\n`;
-                                dMessageText += `ends <t:${getUnixTimestamp(activePeriod.end)}>.\nPlay the following charts:\n`;
+                                dMessageText += `ends <t:${getUnixTimestamp(activePeriod.end)}>\n\nPlay the following charts:\n`;
 
                                 // categorize participants by their W-L
                                 let participantBuckets = {};
@@ -424,7 +480,7 @@ client.login(secrets.discordToken).then(async () => {
                                     let poolDisplayName = await getPoolName(pool);
                                     let dMessageURLChartIDs = [];
 
-                                    dMessageText += `\n**Pool ${poolDisplayName}** (Players: ${players.join(", ")})`;
+                                    dMessageText += `\n**Pool ${poolDisplayName}** (${players.length} players: ${players.join(", ")})\n`;
                                     
                                     // get the card draw rules that match each pool
                                     for (let draw of e.draws[pool]) {
@@ -455,6 +511,11 @@ client.login(secrets.discordToken).then(async () => {
                                             );
                                         }
 
+                                        // 2/28/26: filter edits by _qc_passed flag as well
+                                        cardDraw = cardDraw.filter((c) => 
+                                            !c.is_edit || (c.is_edit && c._qc_passed === true)
+                                        );
+
                                         // this basically shuffles all valid charts in a range
                                         cardDraw = cardDraw.map(v => ({ v, sort: Math.random()}))
                                         cardDraw = cardDraw.sort((a, b) => a.sort - b.sort)
@@ -463,6 +524,11 @@ client.login(secrets.discordToken).then(async () => {
                                         // take only what we need from the valid charts
                                         // first entries from a randomly shuffled list, so basically a random amt equal to draw.quantity
                                         cardDraw = cardDraw.slice(0, Math.min(draw.quantity, cardDraw.length));
+
+                                        // 3/1/26: sort the draw by difficulty ascending
+                                        cardDraw.sort((a, b) => {
+                                            return a.difficulty - b.difficulty;
+                                        });
 
                                         // for everything in the draw, incl. it in the post here
                                         for (card of cardDraw) {
@@ -483,11 +549,55 @@ client.login(secrets.discordToken).then(async () => {
                                             // looks up the song data so we can show the users the title and artist
                                             // ... for some reason the API calls Beginner "Basic" so we do a transformation here
                                             let songRef = songs.data.find((s) => s._id === card.song_id);
-                                            dMessageText += `\n\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)}${(card.difficulty_display === "edit" ? ` ${card.difficulty} [**${card.edit_display_id}**](<https://edits.stepmaniax.com/${card.edit_display_id}>) by ${card.edit_author}` : ` ${card.difficulty}`)})`;
+                                            dMessageText += `\> **${songRef.title}** by ${songRef.artist} (${await capitalize(card.difficulty_display)}${(card.difficulty_display === "edit" ? ` ${card.difficulty} [**${card.edit_display_id}**](<https://edits.stepmaniax.com/${card.edit_display_id}>) by ${card.edit_author}` : ` ${card.difficulty}`)})\n`;
+
+                                            // modifiers setup (if applicable for the event)
+                                            if (e.mods !== undefined) {
+                                                let modsAppliedToCard = [];
+                                                let modsRemaining = e.max_mods;
+
+                                                // 12/19/25: shuffle the mods list before each card draw to keep things interesting
+                                                let modsShuffled = e.mods;
+                                                let ci = modsShuffled.length;
+
+                                                while (ci != 0) {
+                                                    let si = Math.floor(Math.random() * ci);
+                                                    ci--;
+                                                    [modsShuffled[ci], modsShuffled[si]] = [modsShuffled[si], modsShuffled[ci]];
+                                                }
+
+                                                // roll for mods
+                                                for (var mod of modsShuffled) {                                                   
+
+                                                    // roll for random chance on each 
+                                                    let modsDiceRoll = Math.random();
+                                                    if (modsDiceRoll < mod[1]
+                                                        && modsRemaining > 0
+                                                        && !modsAppliedToCard.includes(mod[0])
+                                                        && modsAppliedToCard.filter((m) => m.class === mod[2]).length === 0) {
+
+                                                        // get the mod ID and add it to the list of applied mods
+                                                        let chosenMod = mods.data[mod[0]];
+
+                                                        // apply the "class" of the mod defined in the event - this prevents mods of the same class from being grouped together
+                                                        chosenMod.class = mod[2];
+
+                                                        modsAppliedToCard.push(chosenMod);
+                                                        modsRemaining -= 1;
+                                                        
+                                                        dMessageText += `\> + ${chosenMod.name}\n`;
+                                                    }
+
+                                                }
+
+                                                // apply selected mods to the card object
+                                                card._mods_applied = modsAppliedToCard;
+                                            }
+
                                         }
                                     }
 
-                                    dMessageText += `\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}&edits=1>)\n`;
+                                    dMessageText += `[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}&edits=1>)\n`;
                                 }
 
                                 dMessageText += `\nYour first score registered on the StepManiaX servers for each given chart between <t:${getUnixTimestamp(activePeriod.start)}> and <t:${getUnixTimestamp(activePeriod.end)}> will be counted as your submission.`; //\n\n[Score Browser](<https://smx.573.no/browser?chart_ids=${dMessageURLChartIDs.join(",")}>)`;
@@ -537,7 +647,7 @@ client.login(secrets.discordToken).then(async () => {
 
                     switch (e.format) {
 
-                        case "swiss-2":
+                        case "swiss":
                             // only tabulate scores if the event period is over
                             if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
                                 
@@ -561,15 +671,19 @@ client.login(secrets.discordToken).then(async () => {
                                     activePeriod.results = {};
                                 }
 
+                                console.log(participantBuckets);
+
                                 // tabulate results per pool of participants
                                 for (let [pool, players] of Object.entries(participantBuckets)) {
 
                                     // 12/6/25: track the total number of points awarded in a given pool
                                     // 12/6/25: also offset the point maximum by loss rate of the pool
+                                    // 3/1/26: dynamic pool cutoff - indicates what rounds should follow that behavior
                                     let poolDisplayName = await getPoolName(pool);
                                     let poolPointOffset = parseInt(pool.slice(2));
                                     let isPoolTopPool = (parseInt(pool.slice(2)) == 0);
-                                    let isPoolBottomPool = (parseInt(pool.slice(0, 1)) == 0);
+                                    let isPoolBottomPool = (parseInt(pool.slice(0, 1)) == 0);           // as of 3/1: unused (atm)
+                                    let dynamicPoolCutoff = 3; //(e.participants.length > 12 ? 2 : 3);
                                     let roundData = [];
 
                                     // set up the table to sort players by round end results
@@ -590,11 +704,38 @@ client.login(secrets.discordToken).then(async () => {
                                         // 12/7/25: there is a slim chance that a chart's gone (possibly deleted edit);
                                         // if that's the case don't award anything for the chart.
                                         // (I think this isn't foolproof though - need to investigate further + possibly ask step rev about it)
+                                        // 12/18/25: check for deleted/invalid edits with a web query directly
+                                        let chartDeleted = false;
+
                                         if (charts.data.find((d) => d._id === c._id) === undefined) {
+                                            chartDeleted = true;
+                                        }
+
+                                        if (c.is_edit) {
+                                            await axios.get(`https://edits.stepmaniax.com/${c.edit_display_id}`, { validateStatus: false }).then((res) => {
+                                                if (res.status === 404) {
+                                                    chartDeleted = true;
+                                                }
+                                            });
+                                        }
+
+                                        if (chartDeleted) {
                                             let songRef = songs.data.find((s) => s._id === c.song_id);
-                                            var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\nThis chart appears to have been removed. No points have been awarded for this round.`;
+                                            var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\nThis chart appears to have been removed by the author. No points have been awarded for playing it.`;
                                             await sendDiscordMessage(e, chartResultsString);
                                         } else {
+
+                                            let chartMods = c._mods_applied ?? [];
+                                            let chartModURLParams = "";
+                                            let chartModDisplay = [];
+                                            if (chartMods !== undefined) {
+                                                for (let cMods of chartMods) {
+                                                    if (cMods.params !== null) {
+                                                        chartModURLParams += `,${cMods.params}`;
+                                                    }
+                                                    chartModDisplay.push(cMods.name);
+                                                }
+                                            }
 
                                             var roundChartScores = [];
 
@@ -605,7 +746,7 @@ client.login(secrets.discordToken).then(async () => {
                                                 let pScore = 0;
                                                 let pDate = currentTime;
                                                 let pScoreId = "N/A";
-                                                let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p, c.is_edit);
+                                                let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p, c.is_edit, chartModURLParams);
 
                                                 // console.log(!invalidated.players.includes(p));
                                                 if (pScores.length > 0 && !(invalidated.players.includes(p))) {
@@ -666,7 +807,7 @@ client.login(secrets.discordToken).then(async () => {
                                             }
 
                                             let songRef = songs.data.find((s) => s._id === c.song_id);
-                                            var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\n`;
+                                            var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})${chartMods.length > 0 ? `\n(${chartModDisplay.join(", ")})` : ""}\n\n`;
 
                                             // tally up points
                                             let crIndex = 1;
@@ -677,13 +818,16 @@ client.login(secrets.discordToken).then(async () => {
 
                                                 // 12/1/24: push the results into the data file as well
                                                 if (activePeriod.results[roundChartScore.player] === undefined) {
-                                                    activePeriod.results[roundChartScore.player] = [];
+                                                    activePeriod.results[roundChartScore.player] = {
+                                                        charts: [],
+                                                        win: false
+                                                    };
                                                 }
                                                 
-                                                activePeriod.results[roundChartScore.player].push({
+                                                activePeriod.results[roundChartScore.player].charts.push({
                                                     chart: c._id,
                                                     score: roundChartScore.score,
-                                                    points: roundChartScore.points
+                                                    points: roundChartScore.points,
                                                 });
 
                                                 let pointTotal = roundChartScore.points;
@@ -746,14 +890,15 @@ client.login(secrets.discordToken).then(async () => {
                                     // top slice: winners
                                     var winners = [];
 
-                                    if (isPoolTopPool && e.currentPeriod > 0) {
+                                    // 3/1/26: modify this rule so only semifinals onward are subject to dynamic pool sizing
+                                    if (isPoolTopPool && e.currentPeriod >= (e.periods.length - dynamicPoolCutoff)) {
                                         winners = roundData.slice(0, selectCutSize).reduce((a, v) => {
                                             return a.concat(v.player);
                                         }, []);
-                                    } else if (isPoolBottomPool && e.currentPeriod > 0) {
-                                        winners = roundData.slice(0, roundData.length - (selectCutSize)).reduce((a, v) => {
-                                            return a.concat(v.player);
-                                        }, []);
+                                    //} else if (isPoolBottomPool && e.currentPeriod > 0) {
+                                    //    winners = roundData.slice(0, roundData.length - (selectCutSize)).reduce((a, v) => {
+                                    //        return a.concat(v.player);
+                                    //    }, []);
                                     } else {
                                         winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
                                             return a.concat(v.player)
@@ -779,14 +924,15 @@ client.login(secrets.discordToken).then(async () => {
                                     // bottom slide: losers
                                     var losers = [];
 
-                                    if (isPoolTopPool && e.currentPeriod > 0) {
+                                    // 3/1/26: modify this rule so only semifinals onward are subject to dynamic pool sizing
+                                    if (isPoolTopPool && e.currentPeriod >= (e.periods.length - dynamicPoolCutoff)) {
                                         losers = roundData.slice(selectCutSize).reduce((a, v) => {
                                             return a.concat(v.player);
                                         }, []);
-                                    } else if (isPoolBottomPool && e.currentPeriod > 0) {
-                                        losers = roundData.slice(-selectCutSize).reduce((a, v) => {
-                                            return a.concat(v.player);
-                                        }, []);
+                                    //} else if (isPoolBottomPool && e.currentPeriod > 0) {
+                                    //    losers = roundData.slice(-selectCutSize).reduce((a, v) => {
+                                    //        return a.concat(v.player);
+                                    //    }, []);
                                     } else {
                                         losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
                                             return a.concat(v.player)
@@ -818,6 +964,7 @@ client.login(secrets.discordToken).then(async () => {
                                         let pRef = e.participants[pIndex];
                                         if (pRef !== undefined) {
                                             pRef.wins += 1;
+                                            activePeriod.results[w].win = true;
                                         }
                                     }
 
@@ -841,240 +988,6 @@ client.login(secrets.discordToken).then(async () => {
                     
                             } else {
                                 // nothing
-                            }
-                        break;
-
-                        case "swiss":
-                            // only tabulate scores if the event period is over
-                            if (activePeriod.started && !activePeriod.completed && currentTime >= eEndTime) {
-                                
-                                console.log(`Event period ended; beginning processing loop`);
-                                let currentTime = getUnixTimestamp(new Date());
-
-                                // pull up + categorize participants by their W-L
-                                let participantBuckets = {};
-                                for (let p of e.participants.sort((a, b) => {
-                                    return b.wins - a.wins;
-                                })) {
-                                    let participantWL = `${p.wins}-${p.losses}`;
-                                    if (participantBuckets[participantWL] === undefined) {
-                                        participantBuckets[participantWL] = [];
-                                    }
-                                    participantBuckets[participantWL].push(p.tag);
-                                }
-
-                                // 12/1/24: initialize a "results" container if one does not exist yet
-                                if (activePeriod.results === undefined) {
-                                    activePeriod.results = {};
-                                }
-
-                                // tabulate results per pool of participants
-                                for (let [pool, players] of Object.entries(participantBuckets)) {
-
-                                    let poolDisplayName = await getPoolName(pool);
-                                    let roundData = [];
-
-                                    // set up the table to sort players by round end results
-                                    for (let p of players) {
-                                        let pRank = leaderboard[e.leaderboard].find((r) => r.tag === p);
-                                        pRank = (pRank === undefined ? 99999 : pRank.rank);
-                                        roundData.push({
-                                            player: p,
-                                            points: 0,
-                                            totalScore: 0,
-                                            rank: pRank
-                                        });
-                                    }
-
-                                    // go through each chart in the draw
-                                    for (let c of activePeriod.charts[pool]) {
-                                        // console.log(`Reviewing chart ${c._id}`);
-                                        var roundChartScores = [];
-
-                                        // get each player's score
-                                        for (let p of players) {
-
-                                            // default values
-                                            let pScore = 0;
-                                            let pDate = currentTime;
-                                            let pScoreId = "N/A";
-                                            let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p, c.is_edit);
-
-                                            if (pScores.length > 0 && !(invalidated.players.includes(p))) {
-                                                pScore = pScores[0].score;
-                                                pScoreId = pScores[0]._id.toString();
-                                                pDate = getUnixTimestamp(new Date(pScores[0].created_at));
-                                            }
-
-                                            console.log(`Player ${p}'s result on ${c._id}: ${pScore} (score ID: ${pScoreId})`);
-
-                                            // push each player's score into the table
-                                            roundChartScores.push({
-                                                player: p,
-                                                score: pScore,
-                                                time: pDate,
-                                                points: 0
-                                            });
-                                        }
-
-                                        // sort the scores, highest to lowest
-                                        // tiebreak: first submission, then leaderboard rank
-                                        
-                                        let chartLeaderboard = c.difficulty_display.replace('+', '').replace("basic", "beginner");
-                                        roundChartScores.sort((a,b) => {
-                                            if (b.score === a.score) {
-                                                if (b.time === a.time) {
-                                                    
-                                                    let aRank = leaderboard[chartLeaderboard].find((r) => r.tag === a.player);
-                                                    aRank = (aRank === undefined ? 99999 : aRank.rank);
-                                                    let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
-                                                    bRank = (bRank === undefined ? 99999 : bRank.rank);
-                                                    
-                                                    return aRank - bRank;
-                                                }
-                                                return a.time - b.time;
-                                            }
-                                            return b.score - a.score;
-                                        });
-
-                                        // award points based on position
-                                        // 9/3/24: if there's a tie, allocate the same points to both players. this moves point values up; going to feel way better on ties
-                                        for (let i = 0, a = 0; i < roundChartScores.length; i++) {
-                                            roundChartScores[i].points += e.prixPoints[Math.min(a++, e.prixPoints.length - 1)];
-                                            if (i < roundChartScores.length - 1 && roundChartScores[i].score === roundChartScores[i + 1].score) {
-                                                a -= 1;
-                                            }
-
-                                            // 12/6/25: no score submitted results in no points being gained
-                                            if (roundChartScores[i].score === 0) {
-                                                roundChartScores[i].points = 0
-                                            }
-                                        }
-
-                                        let songRef = songs.data.find((s) => s._id === c.song_id);
-                                        var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\n`;
-
-                                        // tally up points
-                                        let crIndex = 1;
-                                        for (let roundChartScore of roundChartScores) {
-
-                                            // 12/1/24: push the results into the data file as well
-                                            if (activePeriod.results[roundChartScore.player] === undefined) {
-                                                activePeriod.results[roundChartScore.player] = [];
-                                            }
-                                            
-                                            activePeriod.results[roundChartScore.player].push({
-                                                chart: c._id,
-                                                score: roundChartScore.score,
-                                                points: roundChartScore.points
-                                            });
-
-                                            let pointTotal = roundChartScore.points;
-                                            let scoreTotal = roundChartScore.score;
-
-                                            for (let rdPlayer of roundData) {
-                                                if (rdPlayer.player === roundChartScore.player) {
-                                                    rdPlayer.points += pointTotal;
-                                                    rdPlayer.totalScore += scoreTotal;
-                                                }
-                                            }
-
-                                            chartResultsString += `#${crIndex}: ${roundChartScore.player} - ${scoreTotal} (+${pointTotal} point${(pointTotal === 1 ? "" : "s")})\n`;
-
-                                            crIndex++;
-                                        }
-
-                                        await sendDiscordMessage(e, chartResultsString);
-                                    }
-
-                                    // sort on points to determine round winners
-                                    // tiebreak: money score, then leaderboard rank
-                                    roundData.sort((a, b) => {
-                                        if (b.points == a.points) {
-                                            if (b.totalScore == a.totalScore) {
-                                                return a.rank - b.rank;
-                                            }
-                                            return b.totalScore - a.totalScore;
-                                        }
-                                        return b.points - a.points;
-                                    });
-                                    
-                                    let roundResultsString = `## Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Summary\n\n`;
-                                    let rrIndex = 1;
-                                    for (let rounds of roundData) {
-
-                                        // distribute points to players
-                                        let pIndex = e.participants.findIndex((e) => {
-                                            return e.tag === rounds.player;
-                                        });
-
-                                        let pRef = e.participants[pIndex];
-                                        pRef.points += rounds.points;
-
-                                        roundResultsString += `#${rrIndex}: ${rounds.player} - ${rounds.points} point${(rounds.points === 1 ? "" : "s")}\n-# (s: ${rounds.totalScore}; r: ${(rounds.rank !== 99999 ? rounds.rank : "N/A")})\n`;
-                                        rrIndex++;
-                                    }
-
-                                    await sendDiscordMessage(e, roundResultsString);
-
-                                    let dMessageText = `# Round ${e.currentPeriod + 1} Pool ${poolDisplayName} Results\n\n`;
-
-                                    // top slice: winners
-                                    var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
-                                        return a.concat(v.player)
-                                    }, []);
-                                    var winnersDisplay = winners.map((u) => {
-                                        let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
-                                        if (pRef !== undefined) {
-                                            return `${u} (${pRef.wins + 1} - ${pRef.losses})`;
-                                        }
-                                        return `${u}`;
-                                    });
-                                    dMessageText += `**Winners:**\n${winnersDisplay.join("\n")}\n`;
-
-                                    // bottom slide: losers
-                                    var losers = roundData.slice(Math.floor(roundData.length / 2), roundData.length).reduce((a, v) => {
-                                        return a.concat(v.player)
-                                    }, []);
-                                    var losersDisplay = losers.map((u) => {
-                                        let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
-                                        if (pRef !== undefined) {
-                                            return `${u} (${pRef.wins} - ${pRef.losses + 1})`;
-                                        }
-                                        return `${u}`;
-                                    });
-                                    dMessageText += `**\nLosers:**\n${losersDisplay.join("\n")}`;
-
-                                    // award the winners a victory
-                                    for (w of winners) {
-                                        let pIndex = e.participants.findIndex((e) => {
-                                            return e.tag === w;
-                                        });
-                                
-                                        let pRef = e.participants[pIndex];
-                                        if (pRef !== undefined) {
-                                            pRef.wins += 1;
-                                        }
-                                    }
-
-                                    // award losers a loss
-                                    for (l of losers) {
-                                        let pIndex = e.participants.findIndex((e) => {
-                                            return e.tag === l;
-                                        });
-                                        let pRef = e.participants[pIndex];
-                                        if (pRef !== undefined) {
-                                            pRef.losses += 1;
-                                        }
-                                    }
-
-                                    await sendDiscordMessage(e, dMessageText);
-
-                                }
-                                
-                                // close out the period
-                                activePeriod.completed = true;
-                                eUpdated = true;              
                             }
                         break;
 
@@ -1107,14 +1020,41 @@ client.login(secrets.discordToken).then(async () => {
                                 // go through each chart in the draw
                                 for (let c of activePeriod.charts) {
 
+                                    // 12/7/25: there is a slim chance that a chart's gone (possibly deleted edit);
+                                    // if that's the case don't award anything for the chart.
+                                    // (I think this isn't foolproof though - need to investigate further + possibly ask step rev about it)
+                                    // 12/18/25: check for deleted/invalid edits with a web query directly
+                                    let chartDeleted = false;
+
                                     if (charts.data.find((d) => d._id === c._id) === undefined) {
+                                        chartDeleted = true;
+                                    }
 
+                                    if (c.is_edit) {
+                                        await axios.get(`https://edits.stepmaniax.com/${c.edit_display_id}`, { validateStatus: false }).then((res) => {
+                                            if (res.status === 404) {
+                                                chartDeleted = true;
+                                            }
+                                        });
+                                    }
+
+                                    if (chartDeleted) {
                                         let songRef = songs.data.find((s) => s._id === c.song_id);
-                                        var chartResultsString = `### Round ${e.currentPeriod + 1} Pool ${poolDisplayName} - Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\nThis chart appears to have been removed. No points have been awarded for this round.`;
-
+                                        var chartResultsString = `### Round ${e.currentPeriod + 1} Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\nThis chart appears to have been removed by the author. No points have been awarded for playing it.`;
                                         await sendDiscordMessage(e, chartResultsString);
-
                                     } else {
+
+                                        let chartMods = c._mods_applied ?? [];
+                                        let chartModURLParams = "";
+                                        let chartModDisplay = [];
+                                        if (chartMods !== undefined) {
+                                            for (let cMods of chartMods) {
+                                                if (cMods.params !== null) {
+                                                    chartModURLParams += `,${cMods.params}`;
+                                                }
+                                                chartModDisplay.push(cMods.name);
+                                            }
+                                        }
 
                                         console.log(`Reviewing chart ${c._id}`);
                                         var roundChartScores = [];
@@ -1127,7 +1067,7 @@ client.login(secrets.discordToken).then(async () => {
                                             let pDate = currentTime;
                                             // let pRank = roundData.find((sD) => sD.player === p.tag).rank;
 
-                                            let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag, c.is_edit);
+                                            let pScores = await getScore(activePeriod.start, activePeriod.end, c._id, p.tag, c.is_edit, chartModURLParams);
                                             let pScoreId = "N/A";
                                             if (pScores.length > 0) {
                                                 pScore = pScores[0].score;
@@ -1148,7 +1088,7 @@ client.login(secrets.discordToken).then(async () => {
 
                                         // sort the scores, highest to lowest
                                         // tiebreak: first submission, then leaderboard rank
-                                        
+                                            
                                         let chartLeaderboard = "";
                                         if (c.difficulty_display === "edit") {
                                             chartLeaderboard = c.edit_style.replace("single", "wild");
@@ -1163,7 +1103,7 @@ client.login(secrets.discordToken).then(async () => {
                                                     aRank = (aRank === undefined ? 99999 : aRank.rank);
                                                     let bRank = leaderboard[chartLeaderboard].find((r) => r.tag === b.player);
                                                     bRank = (bRank === undefined ? 99999 : bRank.rank);
-                                                    
+                                                        
                                                     return aRank - bRank;
                                                 }
                                                 return a.time - b.time;
@@ -1180,13 +1120,13 @@ client.login(secrets.discordToken).then(async () => {
                                             }
 
                                             // 12/6/25: no score submitted results in no points being gained
-                                                if (roundChartScores[i].score === 0) {
-                                                    roundChartScores[i].points = 0
-                                                }
+                                            if (roundChartScores[i].score === 0) {
+                                                roundChartScores[i].points = 0
+                                            }
                                         }
 
                                         let songRef = songs.data.find((s) => s._id === c.song_id);
-                                        var chartResultsString = `### ${e.name} - Round ${e.currentPeriod + 1} Chart Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})\n\n`;
+                                        var chartResultsString = `### ${e.name} - Round ${e.currentPeriod + 1} Chart Results\nfor **${songRef.title}** by ${songRef.artist} (${await capitalize(c.difficulty_display)} ${c.difficulty}${(c.difficulty_display === "edit" ? ` [**${c.edit_display_id}**](<https://edits.stepmaniax.com/${c.edit_display_id}>) by ${c.edit_author}` : "")})${chartMods.length > 0 ? `\n(${chartModDisplay.join(", ")})` : ""}\n\n`;
 
                                         // tally up points
                                         let index = 1;
@@ -1209,7 +1149,7 @@ client.login(secrets.discordToken).then(async () => {
                                         await sendDiscordMessage(e, chartResultsString);
                                     }
                                 }
-                                
+                                                        
                                 // sort on points to determine round winners
                                 // tiebreak: money score, then leaderboard rank
                                 roundData.sort((a, b) => {
@@ -1244,7 +1184,7 @@ client.login(secrets.discordToken).then(async () => {
 
                                 // top slice: winners
                                 var winners = roundData.slice(0, Math.floor(roundData.length / 2)).reduce((a, v) => {
-                                    return a.concat(v.player)
+                                    return a.concat(v.player);
                                 }, []);
                                 var winnersDisplay = winners.map((u) => {
                                     let pRef = e.participants[e.participants.findIndex((e) => (e.tag === u))];
@@ -1344,7 +1284,7 @@ client.login(secrets.discordToken).then(async () => {
                     let activePeriod = e.periods[e.currentPeriod];
                     
                     switch (e.format) {
-                        case "swiss", "swiss-2": 
+                        case "swiss":
 
                             // check that our active event period is resolved;
                             // both flags set indicates scoring has been done
@@ -1581,6 +1521,24 @@ client.login(secrets.discordToken).then(async () => {
 
             }
         }
+
+        // 2/28/26: we have a list of known "good edits" as well, append a data point to these too.
+        // ./data/good-edits.json
+        let goodEditData = fs.readFileSync("./data/good_edits.json", "utf8");
+        goodEditData = JSON.parse(goodEditData);
+
+        console.log(goodEditData);
+
+        chartData.forEach((e, i) => {
+            console.log(`Processing chart ${e._id} ...`);
+            if (e.edit_display_id !== undefined) {
+                if (goodEditData.includes(e.edit_display_id)) {
+                    console.log(`applying`);
+                    console.log(chartData[i]);
+                    chartData[i]._qc_passed = true;
+                }
+            }
+        });
                     
         // write to file
         if (chartData.length > 0) {
@@ -1655,6 +1613,12 @@ client.login(secrets.discordToken).then(async () => {
         console.log("Reloading leaderboard file...");
         delete require.cache[require.resolve("./data/leaderboard.js")];
         leaderboard = require("./data/leaderboard.js");
+        console.log("Done");
+
+        // reload mods from file
+        console.log("Reloading mods file...");
+        delete require.cache[require.resolve("./data/mods.js")];
+        mods = require("./data/mods.js");
         console.log("Done");
 
         /*
